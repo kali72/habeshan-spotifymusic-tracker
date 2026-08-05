@@ -10,94 +10,98 @@ def get_spotify_client():
     client_id = os.environ.get("SPOTIPY_CLIENT_ID")
     client_secret = os.environ.get("SPOTIPY_CLIENT_SECRET")
     if not client_id or not client_secret:
-        raise ValueError("Missing SPOTIPY_CLIENT_ID or SPOTIPY_CLIENT_SECRET")
-    
-    auth_manager = SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
-    return spotipy.Spotify(auth_manager=auth_manager)
+        raise ValueError("Missing Spotify API credentials.")
+    return spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=client_id, client_secret=client_secret))
 
 def get_gspread_client():
     creds_json = os.environ.get("GCP_SA_KEY")
     if not creds_json:
-        raise ValueError("Missing GCP_SA_KEY environment variable")
-    
+        raise ValueError("Missing GCP_SA_KEY environment variable.")
     info = json.loads(creds_json)
-    scopes = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
-    ]
+    scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     credentials = Credentials.from_service_account_info(info, scopes=scopes)
     return gspread.authorize(credentials)
 
 def fetch_habesha_tracks(sp):
-    queries = ["Ethiopian", "Habesha", "Ethio", "Amharic"]
-    all_tracks = []
-    seen_ids = set()
-
-    # Search individual tracks
+    unique_tracks = {}
+    
+    # Keyword Searches
+    queries = ["Ethiopian", "Habesha", "Ethio Pop", "Amharic", "Ethiopia Hits"]
     for q in queries:
         try:
             results = sp.search(q=q, type="track", limit=50)
-            items = results.get("tracks", {}).get("items", [])
-            for item in items:
-                track_id = item.get("id")
-                if track_id and track_id not in seen_ids:
-                    seen_ids.add(track_id)
-                    all_tracks.append(item)
+            for track in results.get("tracks", {}).get("items", []):
+                if track and track.get("id"):
+                    unique_tracks[track["id"]] = track
         except Exception as e:
-            print(f"Error searching query '{q}': {e}")
+            print(f"Search error for '{q}': {e}")
 
-    # Fetch from popular playlists
-    for q in ["Ethiopian Hits", "Habesha Music", "Best Ethiopian Songs"]:
+    # Playlist Searches
+    playlists_q = ["Ethiopian Hits", "Habesha Music", "Best Ethiopian Songs", "Ethio Pop"]
+    for q in playlists_q:
         try:
             playlists = sp.search(q=q, type="playlist", limit=3).get("playlists", {}).get("items", [])
             for pl in playlists:
                 if not pl:
                     continue
-                pl_items = sp.playlist_items(pl["id"], limit=50).get("items", [])
-                for item in pl_items:
+                items = sp.playlist_items(pl["id"], limit=50).get("items", [])
+                for item in items:
                     track = item.get("track")
-                    if track and track.get("id") and track["id"] not in seen_ids:
-                        seen_ids.add(track["id"])
-                        all_tracks.append(track)
+                    if track and track.get("id"):
+                        unique_tracks[track["id"]] = track
         except Exception as e:
-            print(f"Error fetching playlist for '{q}': {e}")
+            print(f"Playlist error for '{q}': {e}")
 
-    return all_tracks
+    return list(unique_tracks.values())
 
-def filter_by_timeframe(tracks, max_days):
+def parse_track_date(track):
+    album = track.get("album", {})
+    date_str = album.get("release_date", "")
+    if not date_str:
+        return datetime(2000, 1, 1).date()
+    try:
+        parts = date_str.split("-")
+        if len(parts) == 1:
+            return datetime.strptime(date_str, "%Y").date()
+        elif len(parts) == 2:
+            return datetime.strptime(date_str, "%Y-%m").date()
+        else:
+            return datetime.strptime(date_str, "%Y-%m-%d").date()
+    except ValueError:
+        return datetime(2000, 1, 1).date()
+
+def get_tracks_for_timeframe(all_tracks, max_days):
     today = datetime.now().date()
     cutoff = today - timedelta(days=max_days)
-    filtered = []
 
-    for track in tracks:
-        album = track.get("album", {})
-        release_date_str = album.get("release_date", "")
-        if not release_date_str:
-            continue
+    processed = []
+    for t in all_tracks:
+        rel_date = parse_track_date(t)
+        processed.append({"date": rel_date, "track": t})
 
-        try:
-            parts = release_date_str.split("-")
-            if len(parts) == 1:
-                rel_date = datetime.strptime(release_date_str, "%Y").date()
-            elif len(parts) == 2:
-                rel_date = datetime.strptime(release_date_str, "%Y-%m").date()
-            else:
-                rel_date = datetime.strptime(release_date_str, "%Y-%m-%d").date()
+    # Filter tracks inside cutoff window
+    within_timeframe = [p for p in processed if p["date"] >= cutoff]
+    within_timeframe.sort(key=lambda x: (x["date"], x["track"].get("popularity", 0)), reverse=True)
 
-            if rel_date >= cutoff:
-                filtered.append((rel_date, track))
-        except ValueError:
-            continue
+    selected = [p["track"] for p in within_timeframe]
 
-    filtered.sort(key=lambda x: x[0], reverse=True)
-    return filtered
+    # Backfill with top popular tracks if strict date filter returns < 100 items
+    if len(selected) < 100:
+        seen_ids = {t["id"] for t in selected}
+        remaining = [p["track"] for p in processed if p["track"]["id"] not in seen_ids]
+        remaining.sort(key=lambda x: x.get("popularity", 0), reverse=True)
+        selected.extend(remaining[:100 - len(selected)])
 
-def prepare_rows(filtered_tracks):
+    return selected[:100]
+
+def prepare_rows(tracks):
     rows = [["Date", "Artist", "Rank", "Track ID", "Track Name"]]
-    for rank, (rel_date, track) in enumerate(filtered_tracks, start=1):
-        artists = ", ".join([artist["name"] for artist in track.get("artists", [])])
+    today_str = datetime.now().strftime("%Y-%m-%d")
+
+    for rank, track in enumerate(tracks, start=1):
+        artists = ", ".join([a["name"] for a in track.get("artists", [])])
         rows.append([
-            rel_date.strftime("%Y-%m-%d"),
+            today_str,
             artists,
             rank,
             track.get("id", ""),
@@ -110,14 +114,13 @@ def update_sheet_tab(sheet, tab_name, rows):
         try:
             worksheet = sheet.worksheet(tab_name)
         except gspread.exceptions.WorksheetNotFound:
-            worksheet = sheet.add_worksheet(title=tab_name, rows="100", cols="10")
+            worksheet = sheet.add_worksheet(title=tab_name, rows="150", cols="10")
 
         worksheet.clear()
-        # Explicit keyword arguments prevent gspread v6 signature errors
         worksheet.update(values=rows, range_name="A1")
-        print(f"Successfully updated '{tab_name}' with {len(rows)-1} tracks.")
+        print(f"Updated '{tab_name}' with {len(rows)-1} tracks.")
     except Exception as e:
-        print(f"Error updating tab '{tab_name}': {e}")
+        print(f"Error updating '{tab_name}': {e}")
 
 def main():
     sp = get_spotify_client()
@@ -127,7 +130,6 @@ def main():
     sheet = gc.open_by_key(sheet_id)
 
     all_tracks = fetch_habesha_tracks(sp)
-    print(f"Fetched {len(all_tracks)} unique tracks from Spotify.")
 
     timeframes = [
         ("1 Month", 30),
@@ -136,8 +138,8 @@ def main():
     ]
 
     for tab_name, max_days in timeframes:
-        filtered = filter_by_timeframe(all_tracks, max_days)
-        rows = prepare_rows(filtered)
+        tracks = get_tracks_for_timeframe(all_tracks, max_days)
+        rows = prepare_rows(tracks)
         update_sheet_tab(sheet, tab_name, rows)
 
 if __name__ == "__main__":
