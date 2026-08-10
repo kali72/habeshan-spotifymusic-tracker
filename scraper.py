@@ -48,19 +48,24 @@ def fetch_spotify_tracks():
     unique_tracks = {}
 
     for term in SEARCH_TERMS:
-      try:
-        results = sp.search(q=term, type="track", limit=50)
-        for track in results.get("tracks", {}).get("items", []):
-          if track and track.get("id") and track["id"] not in unique_tracks:
-            unique_tracks[track["id"]] = track
-      except Exception as e:
-        print(f"Spotify search warning for '{term}': {e}")
+      # Spotify Search API max limit is 10; paginate with offset to get up to 50 tracks per term
+      for offset in range(0, 50, 10):
+        try:
+          results = sp.search(q=term, type="track", limit=10, offset=offset)
+          items = results.get("tracks", {}).get("items", [])
+          if not items:
+            break
+          for track in items:
+            if track and track.get("id") and track["id"] not in unique_tracks:
+              unique_tracks[track["id"]] = track
+        except Exception as e:
+          print(f"Spotify search warning for '{term}' at offset {offset}: {e}")
+          break
 
     return list(unique_tracks.values())
   except Exception as e:
     print(f"Spotify authentication error: {e}")
     return []
-
 
 def fetch_fallback_tracks():
   unique_tracks = {}
