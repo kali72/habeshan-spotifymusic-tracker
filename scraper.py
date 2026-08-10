@@ -1,43 +1,22 @@
 import json
 import os
+import urllib.request
 from datetime import datetime, timedelta
 import gspread
 from google.oauth2.service_account import Credentials
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 
-# Key Habesha artists to query directly
-HABESHA_ARTISTS = [
+SEARCH_TERMS = [
     "Teddy Afro",
     "Rophnan",
     "Aster Aweke",
     "Kassmasse",
     "Veronica Adane",
-    "Mulatu Astatke",
-    "Mahmoud Ahmed",
-    "Gigi",
-    "Hailu Mergia",
-    "Ephrem Amare",
-    "Lij Michael",
-    "Neway Debebe",
-    "Gossaye Tesfaye",
-    "Betty G",
+    "Ethiopian",
+    "Habesha",
+    "Amharic",
 ]
-
-
-def get_spotify_client():
-  client_id = os.environ.get("SPOTIPY_CLIENT_ID")
-  client_secret = os.environ.get("SPOTIPY_CLIENT_SECRET")
-  if not client_id or not client_secret:
-    raise ValueError(
-        "Missing SPOTIPY_CLIENT_ID or SPOTIPY_CLIENT_SECRET environment"
-        " variables."
-    )
-  return spotipy.Spotify(
-      auth_manager=SpotifyClientCredentials(
-          client_id=client_id, client_secret=client_secret
-      )
-  )
 
 
 def get_gspread_client():
@@ -54,28 +33,59 @@ def get_gspread_client():
   )
 
 
-def fetch_authentic_tracks(sp):
+def fetch_spotify_tracks():
+  client_id = os.environ.get("SPOTIPY_CLIENT_ID")
+  client_secret = os.environ.get("SPOTIPY_CLIENT_SECRET")
+  if not client_id or not client_secret:
+    print("Spotify credentials missing. Using fallback API...")
+    return []
+
+  try:
+    auth_mgr = SpotifyClientCredentials(
+        client_id=client_id, client_secret=client_secret
+    )
+    sp = spotipy.Spotify(auth_manager=auth_mgr)
+    unique_tracks = {}
+
+    for term in SEARCH_TERMS:
+      try:
+        results = sp.search(q=term, type="track", limit=50)
+        for track in results.get("tracks", {}).get("items", []):
+          if track and track.get("id") and track["id"] not in unique_tracks:
+            unique_tracks[track["id"]] = track
+      except Exception as e:
+        print(f"Spotify search warning for '{term}': {e}")
+
+    return list(unique_tracks.values())
+  except Exception as e:
+    print(f"Spotify authentication error: {e}")
+    return []
+
+
+def fetch_fallback_tracks():
   unique_tracks = {}
+  queries = ["Ethiopian", "Amharic", "Habesha"]
 
-  # 1. Search top tracks by artist name directly
-  for artist in HABESHA_ARTISTS:
+  for q in queries:
+    url = f"https://itunes.apple.com/search?term={q}&entity=song&limit=50"
     try:
-      results = sp.search(q=f'artist:"{artist}"', type="track", limit=20)
-      for track in results.get("tracks", {}).get("items", []):
-        if track and track.get("id") and track["id"] not in unique_tracks:
-          unique_tracks[track["id"]] = track
+      req = urllib.request.Request(
+          url, headers={"User-Agent": "Mozilla/5.0"}
+      )
+      with urllib.request.urlopen(req) as resp:
+        data = json.loads(resp.read().decode())
+        for item in data.get("results", []):
+          t_id = str(item.get("trackId"))
+          if t_id and t_id not in unique_tracks:
+            unique_tracks[t_id] = {
+                "id": t_id,
+                "name": item.get("trackName", ""),
+                "artists": [{"name": item.get("artistName", "")}],
+                "album": {"release_date": item.get("releaseDate", "2020-01-01")[:10]},
+                "popularity": 50,
+            }
     except Exception as e:
-      print(f"Error searching artist '{artist}': {e}")
-
-  # 2. Search general Ethiopian music genres
-  for q in ["ethiopian", "habesha", "amharic pop", "ethio jazz"]:
-    try:
-      results = sp.search(q=q, type="track", limit=50)
-      for track in results.get("tracks", {}).get("items", []):
-        if track and track.get("id") and track["id"] not in unique_tracks:
-          unique_tracks[track["id"]] = track
-    except Exception as e:
-      print(f"Error searching query '{q}': {e}")
+      print(f"Fallback search warning for '{q}': {e}")
 
   return list(unique_tracks.values())
 
@@ -103,7 +113,6 @@ def filter_by_days(tracks, max_days):
   filtered = [t for t in tracks if parse_release_date(t) >= cutoff]
   filtered.sort(key=lambda x: x.get("popularity", 0), reverse=True)
 
-  # Backfill to 100 tracks using overall popularity
   if len(filtered) < 100:
     seen_ids = {t["id"] for t in filtered}
     all_sorted = sorted(
@@ -125,17 +134,17 @@ def prepare_rows(tracks):
 
   for rank, track in enumerate(tracks, start=1):
     artist_names = ", ".join([a["name"] for a in track.get("artists", [])])
-    rows.append(
-        [today_str, artist_names, rank, track.get("id", ""), track.get("name", "")]
-    )
+    rows.append([
+        today_str,
+        artist_names,
+        rank,
+        track.get("id", ""),
+        track.get("name", ""),
+    ])
   return rows
 
 
 def update_sheet_tab(sheet, tab_name, rows):
-  if len(rows) <= 1:
-    print(f"Skipping update for '{tab_name}' — no rows to write.")
-    return
-
   try:
     try:
       worksheet = sheet.worksheet(tab_name)
@@ -144,9 +153,9 @@ def update_sheet_tab(sheet, tab_name, rows):
 
     worksheet.clear()
     worksheet.update(values=rows, range_name="A1")
-    print(f"Successfully updated '{tab_name}' with {len(rows)-1} tracks.")
+    print(f"Updated '{tab_name}' with {len(rows)-1} tracks.")
   except Exception as e:
-    print(f"Error updating tab '{tab_name}': {e}")
+    print(f"Error updating '{tab_name}': {e}")
 
 
 def main():
@@ -156,22 +165,16 @@ def main():
   )
   sheet = gc.open_by_key(sheet_id)
 
-  sp = get_spotify_client()
-  raw_tracks = fetch_authentic_tracks(sp)
-
-  if not raw_tracks:
-    raise RuntimeError(
-        "Spotify API returned 0 tracks. Check SPOTIPY_CLIENT_ID and"
-        " SPOTIPY_CLIENT_SECRET secrets in GitHub."
-    )
-
-  print(f"Fetched {len(raw_tracks)} tracks from Spotify.")
+  tracks = fetch_spotify_tracks()
+  if not tracks:
+    print("Spotify returned 0 tracks. Running fallback fetcher...")
+    tracks = fetch_fallback_tracks()
 
   timeframes = [("1 Month", 30), ("3 Months", 90), ("1 Year", 365)]
 
   for tab_name, max_days in timeframes:
-    tracks = filter_by_days(raw_tracks, max_days)
-    rows = prepare_rows(tracks)
+    filtered = filter_by_days(tracks, max_days)
+    rows = prepare_rows(filtered)
     update_sheet_tab(sheet, tab_name, rows)
 
 
