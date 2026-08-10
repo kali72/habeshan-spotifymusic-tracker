@@ -6,20 +6,22 @@ from google.oauth2.service_account import Credentials
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 
-# Curated Spotify Playlists for Authentic Habesha Music
-HABESHA_PLAYLISTS = [
-    "37i9dQZF1DXcadB69DKC8c",  # Ethiopian Hits
-    "37i9dQZF1DXbX3zrk7F77a",  # Ethio Pop & Afro-Habesha
-    "37i9dQZF1DX83P1650C1k8",  # Ethio Jazz Classics
-]
-
-# Top Habesha Artist IDs for complete coverage
-TOP_HABESHA_ARTISTS = [
-    "08oMhAUN23C91R1zltrR6p",  # Teddy Afro
-    "3S9v12W801",  # Rophnan
-    "4a0K2Y2001",  # Kassmasse
-    "6oCxgUP6Vdx3YIJb59Ia0L",  # Aster Aweke
-    "2j7Iv2k201",  # Mahmoud Ahmed
+# Key Habesha artists to query directly
+HABESHA_ARTISTS = [
+    "Teddy Afro",
+    "Rophnan",
+    "Aster Aweke",
+    "Kassmasse",
+    "Veronica Adane",
+    "Mulatu Astatke",
+    "Mahmoud Ahmed",
+    "Gigi",
+    "Hailu Mergia",
+    "Ephrem Amare",
+    "Lij Michael",
+    "Neway Debebe",
+    "Gossaye Tesfaye",
+    "Betty G",
 ]
 
 
@@ -27,7 +29,10 @@ def get_spotify_client():
   client_id = os.environ.get("SPOTIPY_CLIENT_ID")
   client_secret = os.environ.get("SPOTIPY_CLIENT_SECRET")
   if not client_id or not client_secret:
-    raise ValueError("SPOTIPY_CLIENT_ID or SPOTIPY_CLIENT_SECRET is missing.")
+    raise ValueError(
+        "Missing SPOTIPY_CLIENT_ID or SPOTIPY_CLIENT_SECRET environment"
+        " variables."
+    )
   return spotipy.Spotify(
       auth_manager=SpotifyClientCredentials(
           client_id=client_id, client_secret=client_secret
@@ -52,26 +57,25 @@ def get_gspread_client():
 def fetch_authentic_tracks(sp):
   unique_tracks = {}
 
-  # 1. Fetch tracks directly from Spotify Curated Playlists
-  for pl_id in HABESHA_PLAYLISTS:
+  # 1. Search top tracks by artist name directly
+  for artist in HABESHA_ARTISTS:
     try:
-      results = sp.playlist_items(pl_id, limit=100)
-      for item in results.get("items", []):
-        track = item.get("track")
+      results = sp.search(q=f'artist:"{artist}"', type="track", limit=20)
+      for track in results.get("tracks", {}).get("items", []):
         if track and track.get("id") and track["id"] not in unique_tracks:
           unique_tracks[track["id"]] = track
     except Exception as e:
-      print(f"Playlist {pl_id} fetch error: {e}")
+      print(f"Error searching artist '{artist}': {e}")
 
-  # 2. Fetch top tracks from key artists
-  for artist_id in TOP_HABESHA_ARTISTS:
+  # 2. Search general Ethiopian music genres
+  for q in ["ethiopian", "habesha", "amharic pop", "ethio jazz"]:
     try:
-      top_tracks = sp.artist_top_tracks(artist_id).get("tracks", [])
-      for track in top_tracks:
+      results = sp.search(q=q, type="track", limit=50)
+      for track in results.get("tracks", {}).get("items", []):
         if track and track.get("id") and track["id"] not in unique_tracks:
           unique_tracks[track["id"]] = track
     except Exception as e:
-      print(f"Artist {artist_id} fetch error: {e}")
+      print(f"Error searching query '{q}': {e}")
 
   return list(unique_tracks.values())
 
@@ -99,7 +103,7 @@ def filter_by_days(tracks, max_days):
   filtered = [t for t in tracks if parse_release_date(t) >= cutoff]
   filtered.sort(key=lambda x: x.get("popularity", 0), reverse=True)
 
-  # Backfill if timeframe has fewer than 100 tracks
+  # Backfill to 100 tracks using overall popularity
   if len(filtered) < 100:
     seen_ids = {t["id"] for t in filtered}
     all_sorted = sorted(
@@ -128,6 +132,10 @@ def prepare_rows(tracks):
 
 
 def update_sheet_tab(sheet, tab_name, rows):
+  if len(rows) <= 1:
+    print(f"Skipping update for '{tab_name}' — no rows to write.")
+    return
+
   try:
     try:
       worksheet = sheet.worksheet(tab_name)
@@ -136,27 +144,33 @@ def update_sheet_tab(sheet, tab_name, rows):
 
     worksheet.clear()
     worksheet.update(values=rows, range_name="A1")
-    print(f"Updated '{tab_name}' with {len(rows)-1} authentic tracks.")
+    print(f"Successfully updated '{tab_name}' with {len(rows)-1} tracks.")
   except Exception as e:
-    print(f"Error updating '{tab_name}': {e}")
+    print(f"Error updating tab '{tab_name}': {e}")
 
 
 def main():
-  sp = get_spotify_client()
   gc = get_gspread_client()
-
   sheet_id = os.environ.get(
       "SPREADSHEET_ID", "1PbFEMGn3XR3cnZXan04C65FdXPJbIVFAO_G51U9RGPU"
   )
   sheet = gc.open_by_key(sheet_id)
 
-  all_tracks = fetch_authentic_tracks(sp)
-  print(f"Fetched {len(all_tracks)} authentic Habesha tracks from Spotify.")
+  sp = get_spotify_client()
+  raw_tracks = fetch_authentic_tracks(sp)
+
+  if not raw_tracks:
+    raise RuntimeError(
+        "Spotify API returned 0 tracks. Check SPOTIPY_CLIENT_ID and"
+        " SPOTIPY_CLIENT_SECRET secrets in GitHub."
+    )
+
+  print(f"Fetched {len(raw_tracks)} tracks from Spotify.")
 
   timeframes = [("1 Month", 30), ("3 Months", 90), ("1 Year", 365)]
 
   for tab_name, max_days in timeframes:
-    tracks = filter_by_days(all_tracks, max_days)
+    tracks = filter_by_days(raw_tracks, max_days)
     rows = prepare_rows(tracks)
     update_sheet_tab(sheet, tab_name, rows)
 
