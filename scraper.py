@@ -1,5 +1,6 @@
 import json
 import os
+import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta
 import gspread
@@ -7,15 +8,36 @@ from google.oauth2.service_account import Credentials
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 
-SEARCH_TERMS = [
+# Curated list of verified Habesha / Ethiopian artists
+HABESHA_ARTISTS = [
     "Teddy Afro",
     "Rophnan",
     "Aster Aweke",
     "Kassmasse",
     "Veronica Adane",
-    "Ethiopian",
-    "Habesha",
-    "Amharic",
+    "Gigi",
+    "Mahmoud Ahmed",
+    "Mulatu Astatke",
+    "Ephrem Amare",
+    "Lij Michael",
+    "Yared Negu",
+    "Betty G",
+    "Gossaye Tesfaye",
+    "Neway Debebe",
+    "Alemayehu Eshete",
+    "Hailu Mergia",
+    "Tilahun Gessesse",
+    "Kiros Alemayehu",
+    "Bizunesh Bekele",
+    "Teddy Yo",
+    "Sami Dan",
+    "Sancho Gebre",
+    "Abinet Agonafer",
+    "Dawit Nega",
+    "Assegid Abate",
+    "Jah Lude",
+    "Getish Mamo",
+    "Dawit Tsige",
 ]
 
 
@@ -47,19 +69,26 @@ def fetch_spotify_tracks():
     sp = spotipy.Spotify(auth_manager=auth_mgr)
     unique_tracks = {}
 
-    for term in SEARCH_TERMS:
-      # Spotify Search API max limit is 10; paginate with offset to get up to 50 tracks per term
-      for offset in range(0, 50, 10):
+    for artist in HABESHA_ARTISTS:
+      query = f'artist:"{artist}"'
+      for offset in range(0, 30, 10):
         try:
-          results = sp.search(q=term, type="track", limit=10, offset=offset)
+          results = sp.search(q=query, type="track", limit=10, offset=offset)
           items = results.get("tracks", {}).get("items", [])
           if not items:
             break
           for track in items:
             if track and track.get("id") and track["id"] not in unique_tracks:
-              unique_tracks[track["id"]] = track
+              # Strict Check: Ensure the target artist is explicitly listed on the track
+              track_artists = [
+                  a["name"].lower() for a in track.get("artists", [])
+              ]
+              if any(artist.lower() in ta for ta in track_artists):
+                unique_tracks[track["id"]] = track
         except Exception as e:
-          print(f"Spotify search warning for '{term}' at offset {offset}: {e}")
+          print(
+              f"Spotify search warning for '{artist}' at offset {offset}: {e}"
+          )
           break
 
     return list(unique_tracks.values())
@@ -67,12 +96,11 @@ def fetch_spotify_tracks():
     print(f"Spotify authentication error: {e}")
     return []
 
+
 def fetch_fallback_tracks():
   unique_tracks = {}
-  queries = ["Ethiopian", "Amharic", "Habesha"]
-
-  for q in queries:
-    url = f"https://itunes.apple.com/search?term={q}&entity=song&limit=50"
+  for artist in HABESHA_ARTISTS:
+    url = f"https://itunes.apple.com/search?term={urllib.parse.quote(artist)}&entity=song&limit=10"
     try:
       req = urllib.request.Request(
           url, headers={"User-Agent": "Mozilla/5.0"}
@@ -81,16 +109,20 @@ def fetch_fallback_tracks():
         data = json.loads(resp.read().decode())
         for item in data.get("results", []):
           t_id = str(item.get("trackId"))
+          artist_name = item.get("artistName", "")
           if t_id and t_id not in unique_tracks:
-            unique_tracks[t_id] = {
-                "id": t_id,
-                "name": item.get("trackName", ""),
-                "artists": [{"name": item.get("artistName", "")}],
-                "album": {"release_date": item.get("releaseDate", "2020-01-01")[:10]},
-                "popularity": 50,
-            }
+            if artist.lower() in artist_name.lower():
+              unique_tracks[t_id] = {
+                  "id": t_id,
+                  "name": item.get("trackName", ""),
+                  "artists": [{"name": artist_name}],
+                  "album": {
+                      "release_date": item.get("releaseDate", "2020-01-01")[:10]
+                  },
+                  "popularity": 50,
+              }
     except Exception as e:
-      print(f"Fallback search warning for '{q}': {e}")
+      print(f"Fallback search warning for '{artist}': {e}")
 
   return list(unique_tracks.values())
 
