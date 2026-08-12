@@ -38,11 +38,6 @@ HABESHA_ARTISTS = [
     "Jah Lude",
     "Getish Mamo",
     "Dawit Tsige",
-    "Gutu Abera",
-    "Hewan Gebrewold",
-    "Nhatty Man",
-    "Jano Band",
-    "Dan Admasu"
 ]
 
 
@@ -84,7 +79,7 @@ def fetch_spotify_tracks():
             break
           for track in items:
             if track and track.get("id") and track["id"] not in unique_tracks:
-              # Strict Check: Ensure the target artist is explicitly listed on the track
+              # Ensure target artist is explicitly on the track
               track_artists = [
                   a["name"].lower() for a in track.get("artists", [])
               ]
@@ -148,14 +143,15 @@ def parse_release_date(track):
     return datetime(2020, 1, 1).date()
 
 
-def filter_by_days(tracks, max_days):
+def filter_by_days(tracks, max_days, limit=100):
   today = datetime.now().date()
   cutoff = today - timedelta(days=max_days)
 
   filtered = [t for t in tracks if parse_release_date(t) >= cutoff]
   filtered.sort(key=lambda x: x.get("popularity", 0), reverse=True)
 
-  if len(filtered) < 100:
+  # Backfill up to `limit` tracks using overall popularity if timeframe yields fewer
+  if len(filtered) < limit:
     seen_ids = {t["id"] for t in filtered}
     all_sorted = sorted(
         tracks, key=lambda x: x.get("popularity", 0), reverse=True
@@ -164,10 +160,10 @@ def filter_by_days(tracks, max_days):
       if t["id"] not in seen_ids:
         filtered.append(t)
         seen_ids.add(t["id"])
-      if len(filtered) >= 100:
+      if len(filtered) >= limit:
         break
 
-  return filtered[:100]
+  return filtered[:limit]
 
 
 def prepare_rows(tracks):
@@ -193,7 +189,8 @@ def update_sheet_tab(sheet, tab_name, rows):
     except gspread.exceptions.WorksheetNotFound:
       worksheet = sheet.add_worksheet(title=tab_name, rows="150", cols="10")
 
-    worksheet.append_rows(rows_without_header)
+    worksheet.clear()
+    worksheet.update(values=rows, range_name="A1")
     print(f"Updated '{tab_name}' with {len(rows)-1} tracks.")
   except Exception as e:
     print(f"Error updating '{tab_name}': {e}")
@@ -211,10 +208,16 @@ def main():
     print("Spotify returned 0 tracks. Running fallback fetcher...")
     tracks = fetch_fallback_tracks()
 
-  timeframes = [("1 Month", 30), ("3 Months", 90), ("1 Year", 365)]
+  # List of tabs to generate: (Tab Name, Days Cutoff, Item Limit)
+  timeframes = [
+      ("1 Week", 7, 10),
+      ("1 Month", 30, 100),
+      ("3 Months", 90, 100),
+      ("1 Year", 365, 100),
+  ]
 
-  for tab_name, max_days in timeframes:
-    filtered = filter_by_days(tracks, max_days)
+  for tab_name, max_days, limit in timeframes:
+    filtered = filter_by_days(tracks, max_days, limit=limit)
     rows = prepare_rows(filtered)
     update_sheet_tab(sheet, tab_name, rows)
 
