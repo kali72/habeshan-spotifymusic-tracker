@@ -38,6 +38,11 @@ HABESHA_ARTISTS = [
     "Jah Lude",
     "Getish Mamo",
     "Dawit Tsige",
+    "Gutu Abera",
+    "Hewan Gebrewold",
+    "Nhatty Man",
+    "Jano Band",
+    "Dan Admasu"
 ]
 
 
