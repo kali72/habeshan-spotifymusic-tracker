@@ -2,9 +2,9 @@ name: Run Habesha Spotify Tracker Scraper
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Runs automatically every day
+    - cron: '0 6 * * *' # Runs automatically every day at 6:00 AM UTC
   workflow_dispatch:     # Enables the green manual run button
-
+  
 jobs:
   run-scraper:
     runs-on: ubuntu-latest
