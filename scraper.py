@@ -193,8 +193,7 @@ def update_sheet_tab(sheet, tab_name, rows):
     except gspread.exceptions.WorksheetNotFound:
       worksheet = sheet.add_worksheet(title=tab_name, rows="150", cols="10")
 
-    worksheet.clear()
-    worksheet.update(values=rows, range_name="A1")
+    worksheet.append_rows(rows_without_header)
     print(f"Updated '{tab_name}' with {len(rows)-1} tracks.")
   except Exception as e:
     print(f"Error updating '{tab_name}': {e}")
