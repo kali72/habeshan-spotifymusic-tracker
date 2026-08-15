@@ -1,7 +1,5 @@
 import json
 import os
-import urllib.parse
-import urllib.request
 from datetime import datetime, timedelta
 import gspread
 from google.oauth2.service_account import Credentials
@@ -61,9 +59,8 @@ PLAYLIST_SEARCH_TERMS = [
 ]
 
 # A handful of well-known artists per era, used ONLY to bootstrap
-# sp.artist_related_artists() expansion (and as a term list for the iTunes
-# fallback below). This is not a filter -- the pool grows organically from
-# here via the related-artist graph.
+# sp.artist_related_artists() expansion. This is not a filter -- the pool
+# grows organically from here via the related-artist graph.
 SEED_ARTISTS = {
     "golden_era": ["Tilahun Gessesse", "Mahmoud Ahmed", "Alemayehu Eshete", "Mulatu Astatke"],
     "90s_2000s": ["Aster Aweke", "Neway Debebe", "Gigi", "Teddy Afro"],
@@ -228,7 +225,7 @@ def fetch_spotify_tracks():
   client_id = os.environ.get("SPOTIPY_CLIENT_ID")
   client_secret = os.environ.get("SPOTIPY_CLIENT_SECRET")
   if not client_id or not client_secret:
-    print("Spotify credentials missing. Using fallback API...")
+    print("Spotify credentials missing. Cannot discover tracks.")
     return []
 
   try:
@@ -252,45 +249,6 @@ def fetch_spotify_tracks():
   except Exception as e:
     print(f"Spotify authentication error: {e}")
     return []
-
-
-# ---------------------------------------------------------------------------
-# Fallback (iTunes) -- now driven by the dynamic seed/keyword lists instead
-# of the removed HABESHA_ARTISTS array
-# ---------------------------------------------------------------------------
-
-FALLBACK_SEARCH_TERMS = sorted(
-    {name for names in SEED_ARTISTS.values() for name in names}
-) + ["Ethiopian Music", "Habesha Music", "Eritrean Music", "Ethio Jazz"]
-
-
-def fetch_fallback_tracks():
-  unique_tracks = {}
-  for term in FALLBACK_SEARCH_TERMS:
-    url = f"https://itunes.apple.com/search?term={urllib.parse.quote(term)}&entity=song&limit=10"
-    try:
-      req = urllib.request.Request(
-          url, headers={"User-Agent": "Mozilla/5.0"}
-      )
-      with urllib.request.urlopen(req) as resp:
-        data = json.loads(resp.read().decode())
-        for item in data.get("results", []):
-          t_id = str(item.get("trackId"))
-          artist_name = item.get("artistName", "")
-          if t_id and t_id not in unique_tracks and artist_name:
-            unique_tracks[t_id] = {
-                "id": t_id,
-                "name": item.get("trackName", ""),
-                "artists": [{"name": artist_name}],
-                "album": {
-                    "release_date": item.get("releaseDate", "2020-01-01")[:10]
-                },
-                "popularity": 50,
-            }
-    except Exception as e:
-      print(f"Fallback search warning for '{term}': {e}")
-
-  return list(unique_tracks.values())
 
 
 def parse_release_date(track):
@@ -334,16 +292,15 @@ def filter_by_days(tracks, max_days, limit=100):
 
 def prepare_rows(tracks):
   today_str = datetime.now().strftime("%Y-%m-%d")
-  rows = [["Date", "Artist", "Rank", "Track ID", "Track Name"]]
+  rows = [["Artist", "Track Name", "Track ID", "Date"]]
 
   for rank, track in enumerate(tracks, start=1):
     artist_names = ", ".join([a["name"] for a in track.get("artists", [])])
     rows.append([
-        today_str,
         artist_names,
-        rank,
-        track.get("id", ""),
         track.get("name", ""),
+        track.get("id", ""),
+        today_str,
     ])
   return rows
 
@@ -363,16 +320,20 @@ def update_sheet_tab(sheet, tab_name, rows):
 
 
 def main():
+  tracks = fetch_spotify_tracks()
+
+  # Safety check: never touch the sheet if discovery came back empty. Every
+  # tab write starts with worksheet.clear(), so writing here would wipe out
+  # good historical data with nothing to show for it.
+  if not tracks:
+    print("Spotify returned 0 tracks. Aborting before touching the Google Sheet.")
+    return
+
   gc = get_gspread_client()
   sheet_id = os.environ.get(
       "SPREADSHEET_ID", "1PbFEMGn3XR3cnZXan04C65FdXPJbIVFAO_G51U9RGPU"
   )
   sheet = gc.open_by_key(sheet_id)
-
-  tracks = fetch_spotify_tracks()
-  if not tracks:
-    print("Spotify returned 0 tracks. Running fallback fetcher...")
-    tracks = fetch_fallback_tracks()
 
   # List of tabs to generate: (Tab Name, Days Cutoff, Item Limit)
   timeframes = [
