@@ -341,7 +341,20 @@ def prepare_leaderboard_rows(tracks, limit=100):
             today_str,
         ])
     return rows
+    
+def fetch_full_tracks_with_popularity(sp, raw_tracks):
+    """Enriches a list of tracks with complete metadata (including popularity)."""
+    track_ids = [t["id"] for t in raw_tracks if t.get("id")]
+    full_tracks = []
 
+    # Spotify allows fetching up to 50 tracks per API request
+    for i in range(0, len(track_ids), 50):
+        chunk = track_ids[i:i + 50]
+        response = sp.tracks(chunk)
+        full_tracks.extend(response["tracks"])
+
+    return full_tracks
+    
 def update_sheet_tab(sheet, tab_name, rows):
     try:
         try:
@@ -373,6 +386,16 @@ def main():
         "SPREADSHEET_ID", "1PbFEMGn3XR3cnZXan04C65FdXPJbIVFAO_G51U9RGPU"
     )
     sheet = gc.open_by_key(sheet_id)
+
+    # 1. Fetch raw tracks (from playlist, search, or audio features)
+    raw_tracks = get_spotify_tracks(...) 
+
+    # 2. Upgrade raw tracks to full track objects (populates popularity 0-100)
+    tracks = fetch_full_tracks_with_popularity(sp, raw_tracks)
+
+    # 3. Format and update Google Sheets
+    rows = prepare_leaderboard_rows(tracks)
+    update_google_sheet(rows)
 
     # 1. Store snapshot in Archive tab
     archive_ws = ensure_archive_tab(sheet)
