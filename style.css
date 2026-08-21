@@ -258,3 +258,11 @@ header p {
     font-size: 0.85rem;
   }
 }
+.track-cover {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+  display: block;
+  background-color: var(--card-hover);
+}
