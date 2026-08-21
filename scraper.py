@@ -311,18 +311,28 @@ def calculate_timeframe_growth(archive_ws, current_tracks, days_back):
     return ranked_tracks
 
 
+def get_track_image_url(track):
+    """Extracts the smallest album cover image URL (approx 64x64 or 300x300)."""
+    images = track.get("album", {}).get("images", [])
+    if not images:
+        return ""
+    # images[-1] is usually smallest (64x64), perfect for table thumbnails
+    return images[-1].get("url", "")
+
 def prepare_leaderboard_rows(tracks, limit=100):
-    """Formats ranked tracks into Google Sheets row arrays."""
+    """Formats ranked tracks into Google Sheets row arrays including Cover Image URL."""
     today_str = datetime.now().strftime("%Y-%m-%d")
-    rows = [["Rank", "Artist", "Track Name", "Track ID", "Popularity", "Score Growth", "Date"]]
+    rows = [["Rank", "Cover", "Artist", "Track Name", "Track ID", "Popularity", "Score Growth", "Date"]]
 
     for rank, track in enumerate(tracks[:limit], start=1):
         artist_names = ", ".join([a["name"] for a in track.get("artists", [])])
         growth = track.get("growth", 0)
         growth_str = f"+{growth}" if growth > 0 else str(growth)
+        image_url = get_track_image_url(track)
 
         rows.append([
             rank,
+            image_url,
             artist_names,
             track.get("name", ""),
             track.get("id", ""),
@@ -331,7 +341,6 @@ def prepare_leaderboard_rows(tracks, limit=100):
             today_str,
         ])
     return rows
-
 
 def update_sheet_tab(sheet, tab_name, rows):
     try:
