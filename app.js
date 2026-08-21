@@ -65,8 +65,8 @@ async function loadLeaderboard(tabName) {
 // HTML TABLE RENDERER
 // ============================================================================
 function renderTable(container, rows) {
-  const headers = rows[0]; // First row contains headers
-  const dataRows = rows.slice(1); // Remaining rows contain track records
+  const headers = rows[0];
+  const dataRows = rows.slice(1);
 
   let tableHtml = `
     <table class="leaderboard-table">
@@ -74,7 +74,6 @@ function renderTable(container, rows) {
         <tr>
   `;
 
-  // Build table headers
   headers.forEach((header) => {
     tableHtml += `<th>${escapeHtml(header)}</th>`;
   });
@@ -85,19 +84,25 @@ function renderTable(container, rows) {
       <tbody>
   `;
 
-  // Build data rows
   dataRows.forEach((row) => {
     tableHtml += `<tr>`;
     
     headers.forEach((_, colIndex) => {
       const cellValue = row[colIndex] || "";
-      
-      // Formatting for Rank badge column
+      const headerName = headers[colIndex];
+
+      // Rank badge column
       if (colIndex === 0) {
         tableHtml += `<td><span class="rank-badge rank-${cellValue}">${escapeHtml(cellValue)}</span></td>`;
       } 
-      // Formatting for Growth indicator (+X / -X)
-      else if (headers[colIndex] === "Score Growth") {
+      // Cover Art Image column
+      else if (headerName === "Cover") {
+        const fallbackImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='%23888'%3E%3Cpath d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z'/%3E%3C/svg%3E";
+        const srcUrl = cellValue ? escapeHtml(cellValue) : fallbackImg;
+        tableHtml += `<td><img src="${srcUrl}" alt="Album Cover" class="track-cover" loading="lazy" /></td>`;
+      }
+      // Growth indicator (+X / -X)
+      else if (headerName === "Score Growth") {
         const isPositive = cellValue.startsWith("+");
         const badgeClass = isPositive ? "growth-up" : "growth-neutral";
         tableHtml += `<td><span class="${badgeClass}">${escapeHtml(cellValue)}</span></td>`;
@@ -118,7 +123,6 @@ function renderTable(container, rows) {
 
   container.innerHTML = tableHtml;
 }
-
 // ============================================================================
 // UI STATE HELPERS & UTILITIES
 // ============================================================================
