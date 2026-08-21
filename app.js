@@ -1,14 +1,74 @@
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
 const SPREADSHEET_ID = "1PbFEMGn3XR3cnZXan04C65FdXPJbIVFAO_G51U9RGPU";
 const API_KEY = "AIzaSyD4sLQaZ2Wld01E2wUzoPKfSVd39nOL_vA";
+
 // Default active tab
 let currentTab = "1 Week";
+
 // ============================================================================
 // INITIALIZATION
 // ============================================================================
 document.addEventListener("DOMContentLoaded", () => {
+  initTheme();
+  initBackToTop();
   setupTabListeners();
   loadLeaderboard(currentTab);
 });
+
+// ============================================================================
+// THEME SWITCHER
+// ============================================================================
+function initTheme() {
+  const toggleBtn = document.getElementById("theme-toggle");
+  if (!toggleBtn) return;
+
+  const savedTheme = localStorage.getItem("theme");
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const currentTheme = savedTheme || (prefersDark ? "dark" : "light");
+
+  document.documentElement.setAttribute("data-theme", currentTheme);
+  updateToggleText(toggleBtn, currentTheme);
+
+  toggleBtn.addEventListener("click", () => {
+    const activeTheme = document.documentElement.getAttribute("data-theme");
+    const newTheme = activeTheme === "dark" ? "light" : "dark";
+
+    document.documentElement.setAttribute("data-theme", newTheme);
+    localStorage.setItem("theme", newTheme);
+    updateToggleText(toggleBtn, newTheme);
+  });
+}
+
+function updateToggleText(button, theme) {
+  button.innerHTML = theme === "dark" ? "☀️ Light Mode" : "🌙 Dark Mode";
+}
+
+// ============================================================================
+// BACK TO TOP LOGIC
+// ============================================================================
+function initBackToTop() {
+  const backToTopBtn = document.getElementById("back-to-top");
+  if (!backToTopBtn) return;
+
+  window.addEventListener("scroll", () => {
+    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    if (scrollTop > 300) {
+      backToTopBtn.classList.add("show");
+    } else {
+      backToTopBtn.classList.remove("show");
+    }
+  });
+
+  backToTopBtn.addEventListener("click", () => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth"
+    });
+  });
+}
+
 // ============================================================================
 // TAB SWITCHING LOGIC
 // ============================================================================
@@ -17,11 +77,9 @@ function setupTabListeners() {
   
   tabButtons.forEach((button) => {
     button.addEventListener("click", (e) => {
-      // Update active button state
       tabButtons.forEach((btn) => btn.classList.remove("active"));
       e.target.classList.add("active");
 
-      // Fetch and render data for selected tab
       currentTab = e.target.getAttribute("data-tab");
       loadLeaderboard(currentTab);
     });
@@ -35,7 +93,6 @@ async function loadLeaderboard(tabName) {
   const container = document.getElementById("leaderboard-container");
   showLoading(container);
 
-  // Sheet range A1:G101 covers headers + top 100 rows
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'${encodeURIComponent(tabName)}'!A1:G101?key=${API_KEY}`;
 
   try {
@@ -68,7 +125,6 @@ function renderTable(container, rows) {
   const headers = rows[0];
   const dataRows = rows.slice(1);
 
-  // Map header names to column indices dynamically
   const rankIdx = headers.indexOf("Rank");
   const coverIdx = headers.indexOf("Cover");
   const artistIdx = headers.indexOf("Artist");
@@ -120,6 +176,7 @@ function renderTable(container, rows) {
 
   container.innerHTML = tableHtml;
 }
+
 // ============================================================================
 // UI STATE HELPERS & UTILITIES
 // ============================================================================
@@ -141,41 +198,7 @@ function showError(container, message) {
     </div>
   `;
 }
-// ============================================================================
-// THEME SWITCHER
-// ============================================================================
-function initTheme() {
-  const toggleBtn = document.getElementById("theme-toggle");
-  if (!toggleBtn) return;
 
-  // Check stored theme or default to dark
-  const savedTheme = localStorage.getItem("theme");
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const currentTheme = savedTheme || (prefersDark ? "dark" : "light");
-
-  document.documentElement.setAttribute("data-theme", currentTheme);
-  updateToggleText(toggleBtn, currentTheme);
-
-  toggleBtn.addEventListener("click", () => {
-    const activeTheme = document.documentElement.getAttribute("data-theme");
-    const newTheme = activeTheme === "dark" ? "light" : "dark";
-
-    document.documentElement.setAttribute("data-theme", newTheme);
-    localStorage.setItem("theme", newTheme);
-    updateToggleText(toggleBtn, newTheme);
-  });
-}
-
-function updateToggleText(button, theme) {
-  button.innerHTML = theme === "dark" ? "☀️ Light Mode" : "🌙 Dark Mode";
-}
-
-// Update your DOMContentLoaded listener at the top of app.js:
-document.addEventListener("DOMContentLoaded", () => {
-  initTheme();
-  setupTabListeners();
-  loadLeaderboard(currentTab);
-});
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g, "&amp;")
@@ -184,35 +207,3 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
-// ============================================================================
-// BACK TO TOP LOGIC
-// ============================================================================
-function initBackToTop() {
-  const backToTopBtn = document.getElementById("back-to-top");
-  if (!backToTopBtn) return;
-
-  // Toggle button visibility based on scroll distance (300px threshold)
-  window.addEventListener("scroll", () => {
-    if (window.scrollY > 300) {
-      backToTopBtn.classList.add("show");
-    } else {
-      backToTopBtn.classList.remove("show");
-    }
-  });
-
-  // Smooth scroll back to top
-  backToTopBtn.addEventListener("click", () => {
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth"
-    });
-  });
-}
-
-// Update your main DOMContentLoaded initialization at the top of app.js:
-document.addEventListener("DOMContentLoaded", () => {
-  initTheme();
-  initBackToTop();
-  setupTabListeners();
-  loadLeaderboard(currentTab);
-});
