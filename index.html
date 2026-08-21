@@ -1,20 +1,31 @@
-<header>
-  <h1>Habesha Music Leaderboard</h1>
-  <p>Top Ethiopian and Eritrean tracks across eras</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Habesha Music Leaderboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Habesha Music Leaderboard</h1>
+      <p>Top Ethiopian and Eritrean tracks across eras</p>
+      <div style="margin-top: 1rem;">
+        <button id="theme-toggle" class="theme-toggle">☀️ Light Mode</button>
+      </div>
+    </header>
 
-  <div style="margin-top: 1rem;">
-    <button id="theme-toggle" class="theme-toggle">☀️ Light Mode</button>
+    <div class="tabs">
+      <button data-tab="1 Week" class="active">1 Week</button>
+      <button data-tab="1 Month">1 Month</button>
+      <button data-tab="3 Months">3 Months</button>
+      <button data-tab="1 Year">1 Year</button>
+    </div>
+
+    <div id="leaderboard-container"></div>
   </div>
-</header>
-<!-- Tab Buttons -->
-<div class="tabs">
-  <button data-tab="1 Week" class="active">1 Week</button>
-  <button data-tab="1 Month">1 Month</button>
-  <button data-tab="3 Months">3 Months</button>
-  <button data-tab="1 Year">1 Year</button>
-</div>
 
-<!-- Dynamic Output Area -->
-<div id="leaderboard-container"></div>
-
-<script src="app.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
