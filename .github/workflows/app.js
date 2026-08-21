@@ -140,7 +140,41 @@ function showError(container, message) {
     </div>
   `;
 }
+// ============================================================================
+// THEME SWITCHER
+// ============================================================================
+function initTheme() {
+  const toggleBtn = document.getElementById("theme-toggle");
+  if (!toggleBtn) return;
 
+  // Check stored theme or default to dark
+  const savedTheme = localStorage.getItem("theme");
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const currentTheme = savedTheme || (prefersDark ? "dark" : "light");
+
+  document.documentElement.setAttribute("data-theme", currentTheme);
+  updateToggleText(toggleBtn, currentTheme);
+
+  toggleBtn.addEventListener("click", () => {
+    const activeTheme = document.documentElement.getAttribute("data-theme");
+    const newTheme = activeTheme === "dark" ? "light" : "dark";
+
+    document.documentElement.setAttribute("data-theme", newTheme);
+    localStorage.setItem("theme", newTheme);
+    updateToggleText(toggleBtn, newTheme);
+  });
+}
+
+function updateToggleText(button, theme) {
+  button.innerHTML = theme === "dark" ? "☀️ Light Mode" : "🌙 Dark Mode";
+}
+
+// Update your DOMContentLoaded listener at the top of app.js:
+document.addEventListener("DOMContentLoaded", () => {
+  initTheme();
+  setupTabListeners();
+  loadLeaderboard(currentTab);
+});
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g, "&amp;")
