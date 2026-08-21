@@ -184,3 +184,35 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
+// ============================================================================
+// BACK TO TOP LOGIC
+// ============================================================================
+function initBackToTop() {
+  const backToTopBtn = document.getElementById("back-to-top");
+  if (!backToTopBtn) return;
+
+  // Toggle button visibility based on scroll distance (300px threshold)
+  window.addEventListener("scroll", () => {
+    if (window.scrollY > 300) {
+      backToTopBtn.classList.add("show");
+    } else {
+      backToTopBtn.classList.remove("show");
+    }
+  });
+
+  // Smooth scroll back to top
+  backToTopBtn.addEventListener("click", () => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth"
+    });
+  });
+}
+
+// Update your main DOMContentLoaded initialization at the top of app.js:
+document.addEventListener("DOMContentLoaded", () => {
+  initTheme();
+  initBackToTop();
+  setupTabListeners();
+  loadLeaderboard(currentTab);
+});
