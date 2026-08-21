@@ -68,52 +68,49 @@ function renderTable(container, rows) {
   const headers = rows[0];
   const dataRows = rows.slice(1);
 
+  // Map header names to column indices dynamically
+  const rankIdx = headers.indexOf("Rank");
+  const coverIdx = headers.indexOf("Cover");
+  const artistIdx = headers.indexOf("Artist");
+  const trackNameIdx = headers.indexOf("Track Name");
+  const trackIdIdx = headers.indexOf("Track ID");
+
   let tableHtml = `
     <table class="leaderboard-table">
       <thead>
         <tr>
-  `;
-
-  headers.forEach((header) => {
-    tableHtml += `<th>${escapeHtml(header)}</th>`;
-  });
-
-  tableHtml += `
+          <th>Rank</th>
+          <th>Cover</th>
+          <th>Title</th>
+          <th>Artist</th>
         </tr>
       </thead>
       <tbody>
   `;
 
   dataRows.forEach((row) => {
-    tableHtml += `<tr>`;
-    
-    headers.forEach((_, colIndex) => {
-      const cellValue = row[colIndex] || "";
-      const headerName = headers[colIndex];
+    const rank = row[rankIdx] || "";
+    const coverUrl = row[coverIdx] || "";
+    const artist = row[artistIdx] || "";
+    const trackName = row[trackNameIdx] || "";
+    const trackId = row[trackIdIdx] || "";
 
-      // Rank badge column
-      if (colIndex === 0) {
-        tableHtml += `<td><span class="rank-badge rank-${cellValue}">${escapeHtml(cellValue)}</span></td>`;
-      } 
-      // Cover Art Image column
-      else if (headerName === "Cover") {
-        const fallbackImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='%23888'%3E%3Cpath d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z'/%3E%3C/svg%3E";
-        const srcUrl = cellValue ? escapeHtml(cellValue) : fallbackImg;
-        tableHtml += `<td><img src="${srcUrl}" alt="Album Cover" class="track-cover" loading="lazy" /></td>`;
-      }
-      // Growth indicator (+X / -X)
-      else if (headerName === "Score Growth") {
-        const isPositive = cellValue.startsWith("+");
-        const badgeClass = isPositive ? "growth-up" : "growth-neutral";
-        tableHtml += `<td><span class="${badgeClass}">${escapeHtml(cellValue)}</span></td>`;
-      } 
-      // Standard text column
-      else {
-        tableHtml += `<td>${escapeHtml(cellValue)}</td>`;
-      }
-    });
+    const spotifyUrl = trackId ? `https://open.spotify.com/track/${escapeHtml(trackId)}` : "#";
+    const fallbackImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='%23888'%3E%3Cpath d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z'/%3E%3C/svg%3E";
+    const imgSrc = coverUrl ? escapeHtml(coverUrl) : fallbackImg;
 
-    tableHtml += `</tr>`;
+    tableHtml += `
+      <tr class="clickable-row" onclick="window.open('${spotifyUrl}', '_blank')" title="Listen on Spotify">
+        <td><span class="rank-badge rank-${escapeHtml(rank)}">${escapeHtml(rank)}</span></td>
+        <td><img src="${imgSrc}" alt="Album Cover" class="track-cover" loading="lazy" /></td>
+        <td class="track-title-cell">
+          <a href="${spotifyUrl}" target="_blank" rel="noopener noreferrer" class="track-link" onclick="event.stopPropagation()">
+            ${escapeHtml(trackName)}
+          </a>
+        </td>
+        <td class="track-artist">${escapeHtml(artist)}</td>
+      </tr>
+    `;
   });
 
   tableHtml += `
