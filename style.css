@@ -266,3 +266,31 @@ header p {
   display: block;
   background-color: var(--card-hover);
 }
+/* Interactive Row Styling */
+.clickable-row {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.clickable-row:hover {
+  background-color: var(--card-hover);
+}
+
+.track-title-cell {
+  font-weight: 600;
+}
+
+.track-link {
+  color: var(--text-main);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.clickable-row:hover .track-link {
+  color: var(--accent-green);
+  text-decoration: underline;
+}
+
+.track-artist {
+  color: var(--text-muted);
+}
