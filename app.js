@@ -5,7 +5,7 @@ const SPREADSHEET_ID = "1PbFEMGn3XR3cnZXan04C65FdXPJbIVFAO_G51U9RGPU";
 const API_KEY = "AIzaSyD4sLQaZ2Wld01E2wUzoPKfSVd39nOL_vA";
 
 // Default active tab
-let currentTab = "1 Week";
+let currentTab = "Top 15 Artists";
 
 // ============================================================================
 // INITIALIZATION
