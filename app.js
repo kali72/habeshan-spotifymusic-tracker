@@ -74,7 +74,7 @@ async function loadAllLeaderboards() {
       let sectionContent = `<h2 class="section-title">${escapeHtml(chart.title)}</h2>`;
 
       if (rows && rows.length > 1) {
-        sectionContent += generateTableHtml(rows);
+        sectionContent += generateTableHtml(rows, chart.tabName);
       } else {
         sectionContent += `<p style="color: var(--text-muted);">No data currently available.</p>`;
       }
@@ -90,11 +90,9 @@ async function loadAllLeaderboards() {
   }
 }
 
-function generateTableHtml(rows) {
-  const headers = rows[0];
+function generateTableHtml(rows, tabName) {
   const dataRows = rows.slice(1);
-
-  const isArtistTable = headers.includes("Total Tracks") || headers.includes("Popularity Score");
+  const isArtistTable = tabName === "Top 15 Artists";
 
   let tableHtml = `
     <div class="table-container">
@@ -103,7 +101,7 @@ function generateTableHtml(rows) {
           <tr>
             <th>#</th>
             <th>Cover</th>
-            ${isArtistTable ? `<th>Artist</th><th>Tracks</th>` : `<th>Title</th><th>Artist</th>`}
+            ${isArtistTable ? `<th>Artist</th><th>Bio</th>` : `<th>Title</th><th>Artist</th>`}
           </tr>
         </thead>
         <tbody>
@@ -117,21 +115,21 @@ function generateTableHtml(rows) {
     const trackId = row[4] || "";
 
     const spotifyUrl = trackId && !isArtistTable ? `https://open.spotify.com/track/${escapeHtml(trackId)}` : "#";
-    const fallbackImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 24 24' fill='%23888'%3E%3Cpath d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z'/%3E%3C/svg%3E";
+    const fallbackImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 24 24' fill='%23888'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
     const imgSrc = coverUrl ? escapeHtml(coverUrl) : fallbackImg;
 
     if (isArtistTable) {
-      // Artist table structure: Rank | Cover | Artist Name | Total Tracks
+      // Order: Rank (#) | Cover | Artist Name | Bio
       tableHtml += `
         <tr>
           <td><span class="rank-badge rank-${escapeHtml(rank)}">${escapeHtml(rank)}</span></td>
-          <td><img src="${imgSrc}" alt="Artist Cover" class="track-cover" loading="lazy" /></td>
+          <td><img src="${imgSrc}" alt="${escapeHtml(col3)}" class="track-cover artist-avatar" loading="lazy" /></td>
           <td class="track-title-cell"><strong>${escapeHtml(col3)}</strong></td>
-          <td class="track-artist">${escapeHtml(col4)}</td>
+          <td class="track-artist artist-bio">${escapeHtml(col4)}</td>
         </tr>
       `;
     } else {
-      // Track table structure: Rank | Cover | Track Name | Artist
+      // Order: Rank (#) | Cover | Title | Artist
       tableHtml += `
         <tr class="clickable-row" onclick="window.open('${spotifyUrl}', '_blank')" title="Listen on Spotify">
           <td><span class="rank-badge rank-${escapeHtml(rank)}">${escapeHtml(rank)}</span></td>
