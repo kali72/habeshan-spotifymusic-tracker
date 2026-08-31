@@ -387,16 +387,6 @@ def main():
     )
     sheet = gc.open_by_key(sheet_id)
 
-    # 1. Fetch raw tracks (from playlist, search, or audio features)
-    raw_tracks = get_spotify_tracks(...) 
-
-    # 2. Upgrade raw tracks to full track objects (populates popularity 0-100)
-    tracks = fetch_full_tracks_with_popularity(sp, raw_tracks)
-
-    # 3. Format and update Google Sheets
-    rows = prepare_leaderboard_rows(tracks)
-    update_google_sheet(rows)
-
     # 1. Store snapshot in Archive tab
     archive_ws = ensure_archive_tab(sheet)
     append_daily_snapshot(archive_ws, tracks)
@@ -414,7 +404,6 @@ def main():
         ranked_tracks = calculate_timeframe_growth(archive_ws, tracks, days_back=days_back)
         rows = prepare_leaderboard_rows(ranked_tracks, limit=limit)
         update_sheet_tab(sheet, tab_name, rows)
-
 
 if __name__ == "__main__":
     main()
