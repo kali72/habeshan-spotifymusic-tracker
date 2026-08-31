@@ -7,7 +7,7 @@ import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 
 # ---------------------------------------------------------------------------
-# Dynamic discovery configuration
+# Discovery Configuration
 # ---------------------------------------------------------------------------
 
 DISCOVERY_QUERIES = [
@@ -69,13 +69,11 @@ def get_gspread_client():
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
     ]
-    return gspread.authorize(
-        Credentials.from_service_account_info(info, scopes=scopes)
-    )
+    return gspread.authorize(Credentials.from_service_account_info(info, scopes=scopes))
 
 
 # ---------------------------------------------------------------------------
-# Spotify Discovery Strategies
+# Spotify Discovery
 # ---------------------------------------------------------------------------
 
 def discover_by_search_queries(sp, unique_tracks):
@@ -201,12 +199,10 @@ def fetch_spotify_tracks():
     client_secret = os.environ.get("SPOTIPY_CLIENT_SECRET")
     if not client_id or not client_secret:
         print("Spotify credentials missing.")
-        return []
+        return [], None
 
     try:
-        auth_mgr = SpotifyClientCredentials(
-            client_id=client_id, client_secret=client_secret
-        )
+        auth_mgr = SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
         sp = spotipy.Spotify(auth_manager=auth_mgr)
         unique_tracks = {}
 
@@ -215,15 +211,15 @@ def fetch_spotify_tracks():
         discover_by_playlists(sp, unique_tracks)
         discover_by_related_artists(sp, unique_tracks)
 
-        print(f"Discovered {len(unique_tracks)} unique candidate tracks.")
-        return list(unique_tracks.values())
+        print(f"Discovered {len(unique_tracks)} unique tracks.")
+        return list(unique_tracks.values()), sp
     except Exception as e:
         print(f"Spotify authentication error: {e}")
-        return []
+        return [], None
 
 
 # ---------------------------------------------------------------------------
-# Leaderboard Formatting & Aggregations
+# Data Aggregations & Helpers
 # ---------------------------------------------------------------------------
 
 def ensure_archive_tab(sheet):
@@ -255,67 +251,89 @@ def append_daily_snapshot(archive_ws, tracks):
 
 def get_track_image_url(track):
     images = track.get("album", {}).get("images", [])
-    return images[-1].get("url", "") if images else ""
+    return images[0].get("url", "") if images else ""
 
 
-def prepare_artist_leaderboard_rows(tracks, limit=15):
-    """Aggregates tracks to produce Top 15 Artists leaderboard with correct columns."""
-    artist_map = {}
+def parse_release_date(date_str):
+    if not date_str:
+        return datetime(2000, 1, 1)
+    try:
+        if len(date_str) == 4:
+            return datetime.strptime(date_str, "%Y")
+        elif len(date_str) == 7:
+            return datetime.strptime(date_str, "%Y-%m")
+        return datetime.strptime(date_str, "%Y-%m-%d")
+    except Exception:
+        return datetime(2000, 1, 1)
+
+
+def prepare_artist_leaderboard_rows(sp, tracks, limit=15):
+    """Fetches real artist profile pictures and generates short bios."""
+    artist_counts = {}
+    artist_objs = {}
 
     for track in tracks:
         pop = track.get("popularity", 0)
-        img_url = get_track_image_url(track)
-
         for artist in track.get("artists", []):
+            aid = artist.get("id")
             name = artist.get("name")
-            if not name:
+            if not aid or not name:
                 continue
-            if name not in artist_map:
-                artist_map[name] = {
-                    "total_pop": 0,
-                    "track_count": 0,
-                    "cover": img_url,
-                }
-            artist_map[name]["total_pop"] += pop
-            artist_map[name]["track_count"] += 1
-            if not artist_map[name]["cover"] and img_url:
-                artist_map[name]["cover"] = img_url
+            if aid not in artist_counts:
+                artist_counts[aid] = {"name": name, "total_pop": 0, "count": 0}
+                artist_objs[aid] = artist
+            artist_counts[aid]["total_pop"] += pop
+            artist_counts[aid]["count"] += 1
 
     sorted_artists = sorted(
-        artist_map.items(),
-        key=lambda x: (x[1]["total_pop"], x[1]["track_count"]),
-        reverse=True,
-    )
+        artist_counts.items(),
+        key=lambda x: (x[1]["total_pop"], x[1]["count"]),
+        reverse=True
+    )[:limit]
 
-    # Corrected schema: Rank, Cover, Artist, Total Tracks, Popularity
-    rows = [["Rank", "Cover", "Artist", "Total Tracks", "Popularity Score"]]
+    # Batch fetch Spotify artist profile data for real pictures and genres
+    artist_ids = [aid for aid, _ in sorted_artists]
+    spotify_artist_details = {}
 
-    for rank, (artist_name, data) in enumerate(sorted_artists[:limit], start=1):
-        rows.append(
-            [
-                rank,
-                data["cover"],
-                artist_name,
-                f"{data['track_count']} Tracks",
-                data["total_pop"],
-            ]
-        )
+    if sp and artist_ids:
+        for i in range(0, len(artist_ids), 50):
+            chunk = artist_ids[i:i + 50]
+            try:
+                resp = sp.artists(chunk)
+                for a in resp.get("artists", []):
+                    if a:
+                        spotify_artist_details[a["id"]] = a
+            except Exception as e:
+                print(f"Error fetching artist batch: {e}")
+
+    rows = [["Rank", "Cover", "Artist", "Bio"]]
+
+    for rank, (aid, data) in enumerate(sorted_artists, start=1):
+        sp_details = spotify_artist_details.get(aid, {})
+        images = sp_details.get("images", [])
+        profile_img = images[0]["url"] if images else ""
+
+        genres = sp_details.get("genres", [])
+        genre_str = ", ".join([g.title() for g in genres[:2]]) if genres else "Habesha Artist"
+        followers = sp_details.get("followers", {}).get("total", 0)
+        follower_str = f"{followers:,} Spotify followers" if followers else f"{data['count']} tracked songs"
+
+        bio = f"{genre_str} • {follower_str}"
+        rows.append([rank, profile_img, data["name"], bio])
 
     return rows
 
 
 def prepare_all_time_track_rows(tracks, limit=100):
-    """Sorts tracks by raw popularity score with no timeframe restriction."""
     sorted_tracks = sorted(tracks, key=lambda x: x.get("popularity", 0), reverse=True)
     today_str = datetime.now().strftime("%Y-%m-%d")
     rows = [["Rank", "Cover", "Artist", "Track Name", "Track ID", "Popularity", "Score Growth", "Date"]]
 
     for rank, track in enumerate(sorted_tracks[:limit], start=1):
         artist_names = ", ".join([a["name"] for a in track.get("artists", [])])
-        image_url = get_track_image_url(track)
         rows.append([
             rank,
-            image_url,
+            get_track_image_url(track),
             artist_names,
             track.get("name", ""),
             track.get("id", ""),
@@ -350,17 +368,45 @@ def calculate_timeframe_growth(archive_ws, current_tracks, days_back):
         except (ValueError, TypeError, KeyError):
             continue
 
+    has_archive_data = len(past_scores) > 0
+
     ranked_tracks = []
+    now = datetime.now()
+
     for t in current_tracks:
         tid = t.get("id")
         curr_pop = t.get("popularity", 0)
-        growth = curr_pop - past_scores[tid] if tid in past_scores else 0
-
         t_copy = dict(t)
-        t_copy["growth"] = growth
+
+        if has_archive_data and tid in past_scores:
+            # Historical Delta
+            growth = curr_pop - past_scores[tid]
+            t_copy["score"] = (growth, curr_pop)
+            t_copy["growth_str"] = f"+{growth}" if growth > 0 else str(growth)
+        else:
+            # Cold-Start Criteria (Option B)
+            rel_date = parse_release_date(t.get("album", {}).get("release_date"))
+            days_old = (now - rel_date).days
+
+            if days_back == 7:  # Weekly: Heavy emphasis on recent hits
+                recency_weight = max(0, 100 - (days_old / 30))
+                score = curr_pop * 1.5 + recency_weight
+            elif days_back == 30:  # Monthly: Recent releases + medium popularity
+                recency_weight = max(0, 50 - (days_old / 90))
+                score = curr_pop + recency_weight
+            elif days_back == 90:  # 3-Month: Mid-term trends & high stability
+                recency_weight = max(0, 25 - (days_old / 180))
+                score = curr_pop * 1.1 + recency_weight
+            else:  # Yearly: Established classics & high overall streaming power
+                catalog_weight = min(30, days_old / 365)
+                score = curr_pop + catalog_weight
+
+            t_copy["score"] = score
+            t_copy["growth_str"] = "+0"
+
         ranked_tracks.append(t_copy)
 
-    ranked_tracks.sort(key=lambda x: (x["growth"], x.get("popularity", 0)), reverse=True)
+    ranked_tracks.sort(key=lambda x: x["score"], reverse=True)
     return ranked_tracks
 
 
@@ -370,13 +416,11 @@ def prepare_leaderboard_rows(tracks, limit=100):
 
     for rank, track in enumerate(tracks[:limit], start=1):
         artist_names = ", ".join([a["name"] for a in track.get("artists", [])])
-        growth = track.get("growth", 0)
-        growth_str = f"+{growth}" if growth > 0 else str(growth)
-        image_url = get_track_image_url(track)
+        growth_str = track.get("growth_str", "+0")
 
         rows.append([
             rank,
-            image_url,
+            get_track_image_url(track),
             artist_names,
             track.get("name", ""),
             track.get("id", ""),
@@ -406,7 +450,7 @@ def update_sheet_tab(sheet, tab_name, rows):
 # ---------------------------------------------------------------------------
 
 def main():
-    tracks = fetch_spotify_tracks()
+    tracks, sp = fetch_spotify_tracks()
     if not tracks:
         print("Spotify returned 0 tracks. Aborting script to protect Google Sheet data.")
         return
@@ -420,11 +464,11 @@ def main():
     archive_ws = ensure_archive_tab(sheet)
     append_daily_snapshot(archive_ws, tracks)
 
-    # 1. Top 15 Artists Tab
-    artist_rows = prepare_artist_leaderboard_rows(tracks, limit=15)
+    # 1. Top 15 Artists Tab (Rank | Cover | Artist | Bio)
+    artist_rows = prepare_artist_leaderboard_rows(sp, tracks, limit=15)
     update_sheet_tab(sheet, "Top 15 Artists", artist_rows)
 
-    # 2. All-Time Most Heard Tab
+    # 2. All-Time Tracks Tab
     all_time_rows = prepare_all_time_track_rows(tracks, limit=100)
     update_sheet_tab(sheet, "All-Time Tracks", all_time_rows)
 
