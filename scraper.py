@@ -259,13 +259,13 @@ def get_track_image_url(track):
 
 
 def prepare_artist_leaderboard_rows(tracks, limit=15):
-    """Aggregates tracks to produce Top 15 Artists leaderboard."""
+    """Aggregates tracks to produce Top 15 Artists leaderboard with correct columns."""
     artist_map = {}
 
     for track in tracks:
         pop = track.get("popularity", 0)
         img_url = get_track_image_url(track)
-        
+
         for artist in track.get("artists", []):
             name = artist.get("name")
             if not name:
@@ -274,7 +274,7 @@ def prepare_artist_leaderboard_rows(tracks, limit=15):
                 artist_map[name] = {
                     "total_pop": 0,
                     "track_count": 0,
-                    "cover": img_url
+                    "cover": img_url,
                 }
             artist_map[name]["total_pop"] += pop
             artist_map[name]["track_count"] += 1
@@ -282,21 +282,24 @@ def prepare_artist_leaderboard_rows(tracks, limit=15):
                 artist_map[name]["cover"] = img_url
 
     sorted_artists = sorted(
-        artist_map.items(), 
-        key=lambda x: (x[1]["total_pop"], x[1]["track_count"]), 
-        reverse=True
+        artist_map.items(),
+        key=lambda x: (x[1]["total_pop"], x[1]["track_count"]),
+        reverse=True,
     )
 
-    rows = [["Rank", "Cover", "Title", "Artist"]]  # Header aligned with renderer
-    today_str = datetime.now().strftime("%Y-%m-%d")
+    # Corrected schema: Rank, Cover, Artist, Total Tracks, Popularity
+    rows = [["Rank", "Cover", "Artist", "Total Tracks", "Popularity Score"]]
 
     for rank, (artist_name, data) in enumerate(sorted_artists[:limit], start=1):
-        rows.append([
-            rank,
-            data["cover"],
-            f"{data['track_count']} Tracks Tracked",
-            artist_name
-        ])
+        rows.append(
+            [
+                rank,
+                data["cover"],
+                artist_name,
+                f"{data['track_count']} Tracks",
+                data["total_pop"],
+            ]
+        )
 
     return rows
 
