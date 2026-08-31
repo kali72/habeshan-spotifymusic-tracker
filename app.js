@@ -94,51 +94,60 @@ function generateTableHtml(rows) {
   const headers = rows[0];
   const dataRows = rows.slice(1);
 
-  const rankIdx = headers.indexOf("Rank");
-  const coverIdx = headers.indexOf("Cover");
-  const artistIdx = headers.indexOf("Artist");
-  const trackNameIdx = headers.indexOf("Track Name") !== -1 ? headers.indexOf("Track Name") : headers.indexOf("Title");
-  const trackIdIdx = headers.indexOf("Track ID");
+  const isArtistTable = headers.includes("Total Tracks") || headers.includes("Popularity Score");
 
   let tableHtml = `
-    <table class="leaderboard-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Cover</th>
-          <th>Title</th>
-          <th>Artist</th>
-        </tr>
-      </thead>
-      <tbody>
+    <div class="table-container">
+      <table class="leaderboard-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Cover</th>
+            ${isArtistTable ? `<th>Artist</th><th>Tracks</th>` : `<th>Title</th><th>Artist</th>`}
+          </tr>
+        </thead>
+        <tbody>
   `;
 
   dataRows.forEach((row) => {
-    const rank = row[rankIdx] || "";
-    const coverUrl = row[coverIdx] || "";
-    const artist = row[artistIdx] || "";
-    const trackName = row[trackNameIdx] || "";
-    const trackId = row[trackIdIdx] || "";
+    const rank = row[0] || "";
+    const coverUrl = row[1] || "";
+    const col3 = row[2] || "";
+    const col4 = row[3] || "";
+    const trackId = row[4] || "";
 
-    const spotifyUrl = trackId ? `https://open.spotify.com/track/${escapeHtml(trackId)}` : "#";
+    const spotifyUrl = trackId && !isArtistTable ? `https://open.spotify.com/track/${escapeHtml(trackId)}` : "#";
     const fallbackImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 24 24' fill='%23888'%3E%3Cpath d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z'/%3E%3C/svg%3E";
     const imgSrc = coverUrl ? escapeHtml(coverUrl) : fallbackImg;
 
-    tableHtml += `
-      <tr class="clickable-row" onclick="window.open('${spotifyUrl}', '_blank')" title="Listen on Spotify">
-        <td><span class="rank-badge rank-${escapeHtml(rank)}">${escapeHtml(rank)}</span></td>
-        <td><img src="${imgSrc}" alt="Cover" class="track-cover" loading="lazy" /></td>
-        <td class="track-title-cell">
-          <a href="${spotifyUrl}" target="_blank" rel="noopener noreferrer" class="track-link" onclick="event.stopPropagation()">
-            ${escapeHtml(trackName)}
-          </a>
-        </td>
-        <td class="track-artist">${escapeHtml(artist)}</td>
-      </tr>
-    `;
+    if (isArtistTable) {
+      // Artist table structure: Rank | Cover | Artist Name | Total Tracks
+      tableHtml += `
+        <tr>
+          <td><span class="rank-badge rank-${escapeHtml(rank)}">${escapeHtml(rank)}</span></td>
+          <td><img src="${imgSrc}" alt="Artist Cover" class="track-cover" loading="lazy" /></td>
+          <td class="track-title-cell"><strong>${escapeHtml(col3)}</strong></td>
+          <td class="track-artist">${escapeHtml(col4)}</td>
+        </tr>
+      `;
+    } else {
+      // Track table structure: Rank | Cover | Track Name | Artist
+      tableHtml += `
+        <tr class="clickable-row" onclick="window.open('${spotifyUrl}', '_blank')" title="Listen on Spotify">
+          <td><span class="rank-badge rank-${escapeHtml(rank)}">${escapeHtml(rank)}</span></td>
+          <td><img src="${imgSrc}" alt="Track Cover" class="track-cover" loading="lazy" /></td>
+          <td class="track-title-cell">
+            <a href="${spotifyUrl}" target="_blank" rel="noopener noreferrer" class="track-link" onclick="event.stopPropagation()">
+              ${escapeHtml(col4)}
+            </a>
+          </td>
+          <td class="track-artist">${escapeHtml(col3)}</td>
+        </tr>
+      `;
+    }
   });
 
-  tableHtml += `</tbody></table>`;
+  tableHtml += `</tbody></table></div>`;
   return tableHtml;
 }
 
