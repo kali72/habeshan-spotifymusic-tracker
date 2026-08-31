@@ -369,7 +369,6 @@ def calculate_timeframe_growth(archive_ws, current_tracks, days_back):
             continue
 
     has_archive_data = len(past_scores) > 0
-
     ranked_tracks = []
     now = datetime.now()
 
@@ -381,27 +380,27 @@ def calculate_timeframe_growth(archive_ws, current_tracks, days_back):
         if has_archive_data and tid in past_scores:
             # Historical Delta
             growth = curr_pop - past_scores[tid]
-            t_copy["score"] = (growth, curr_pop)
+            t_copy["score"] = (float(growth), float(curr_pop))
             t_copy["growth_str"] = f"+{growth}" if growth > 0 else str(growth)
         else:
-            # Cold-Start Criteria (Option B)
+            # Cold-Start Criteria
             rel_date = parse_release_date(t.get("album", {}).get("release_date"))
             days_old = (now - rel_date).days
 
-            if days_back == 7:  # Weekly: Heavy emphasis on recent hits
-                recency_weight = max(0, 100 - (days_old / 30))
-                score = curr_pop * 1.5 + recency_weight
-            elif days_back == 30:  # Monthly: Recent releases + medium popularity
-                recency_weight = max(0, 50 - (days_old / 90))
-                score = curr_pop + recency_weight
-            elif days_back == 90:  # 3-Month: Mid-term trends & high stability
-                recency_weight = max(0, 25 - (days_old / 180))
-                score = curr_pop * 1.1 + recency_weight
-            else:  # Yearly: Established classics & high overall streaming power
-                catalog_weight = min(30, days_old / 365)
-                score = curr_pop + catalog_weight
+            if days_back == 7:  # Weekly
+                recency_weight = max(0.0, 100.0 - (days_old / 30.0))
+                calc_score = curr_pop * 1.5 + recency_weight
+            elif days_back == 30:  # Monthly
+                recency_weight = max(0.0, 50.0 - (days_old / 90.0))
+                calc_score = curr_pop + recency_weight
+            elif days_back == 90:  # 3-Month
+                recency_weight = max(0.0, 25.0 - (days_old / 180.0))
+                calc_score = curr_pop * 1.1 + recency_weight
+            else:  # Yearly
+                catalog_weight = min(30.0, days_old / 365.0)
+                calc_score = curr_pop + catalog_weight
 
-            t_copy["score"] = score
+            t_copy["score"] = (float(calc_score), float(curr_pop))
             t_copy["growth_str"] = "+0"
 
         ranked_tracks.append(t_copy)
