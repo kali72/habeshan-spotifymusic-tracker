@@ -263,3 +263,13 @@ header p {
   z-index: 10;
   box-shadow: 0 1px 0 var(--border-color);
 }
+/* Circular Avatar for Artist Profile Pictures */
+.artist-avatar {
+  border-radius: 50% !important;
+  object-fit: cover;
+}
+
+.artist-bio {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
