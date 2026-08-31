@@ -2,12 +2,12 @@ const SPREADSHEET_ID = "1PbFEMGn3XR3cnZXan04C65FdXPJbIVFAO_G51U9RGPU";
 const API_KEY = "AIzaSyD4sLQaZ2Wld01E2wUzoPKfSVd39nOL_vA";
 
 const CHARTS = [
-  { id: "top-15-artists", title: "Top 15 Artists", tabName: "Top 15 Artists" },
-  { id: "all-time-tracks", title: "All-Time Tracks", tabName: "All-Time Tracks" },
-  { id: "weekly-top-10", title: "Weekly Top 10", tabName: "Weekly Top 10" },
-  { id: "monthly-top-100", title: "Monthly Top 100", tabName: "Monthly Top 100" },
-  { id: "three-month-top-100", title: "3-Month Top 100", tabName: "3-Month Top 100" },
-  { id: "yearly-top-100", title: "Yearly Top 100", tabName: "Yearly Top 100" }
+  { containerId: "section-top-15-artists", anchorId: "top-15-artists", title: "Top 15 Artists", tabName: "Top 15 Artists" },
+  { containerId: "section-all-time-tracks", anchorId: "all-time-tracks", title: "All-Time Most Heard", tabName: "All-Time Tracks" },
+  { containerId: "section-weekly-top-10", anchorId: "weekly-top-10", title: "Weekly Top 10", tabName: "Weekly Top 10" },
+  { containerId: "section-monthly-top-100", anchorId: "monthly-top-100", title: "Monthly Top 100", tabName: "Monthly Top 100" },
+  { containerId: "section-three-month-top-100", anchorId: "three-month-top-100", title: "3-Month Top 100", tabName: "3-Month Top 100" },
+  { containerId: "section-yearly-top-100", anchorId: "yearly-top-100", title: "Yearly Top 100", tabName: "Yearly Top 100" }
 ];
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -16,14 +16,43 @@ document.addEventListener("DOMContentLoaded", () => {
   loadAllLeaderboards();
 });
 
+function initTheme() {
+  const toggleBtn = document.getElementById("theme-toggle");
+  if (!toggleBtn) return;
+
+  const savedTheme = localStorage.getItem("theme");
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const currentTheme = savedTheme || (prefersDark ? "dark" : "light");
+
+  document.documentElement.setAttribute("data-theme", currentTheme);
+  updateToggleText(toggleBtn, currentTheme);
+
+  toggleBtn.addEventListener("click", () => {
+    const activeTheme = document.documentElement.getAttribute("data-theme");
+    const newTheme = activeTheme === "dark" ? "light" : "dark";
+
+    document.documentElement.setAttribute("data-theme", newTheme);
+    localStorage.setItem("theme", newTheme);
+    updateToggleText(toggleBtn, newTheme);
+  });
+}
+
+function updateToggleText(button, theme) {
+  button.innerHTML = theme === "dark" ? "☀️ Light Mode" : "🌙 Dark Mode";
+}
+
 async function loadAllLeaderboards() {
-  const container = document.getElementById("leaderboard-container");
-  container.innerHTML = `
-    <div class="loading-spinner">
-      <div class="spinner"></div>
-      <p>Loading all Ethiopian music rankings...</p>
-    </div>
-  `;
+  CHARTS.forEach(chart => {
+    const wrapper = document.getElementById(chart.containerId);
+    if (wrapper) {
+      wrapper.innerHTML = `
+        <section id="${chart.anchorId}" class="ranking-section">
+          <h2 class="section-title">${escapeHtml(chart.title)}</h2>
+          <p style="color: var(--text-muted);">Loading chart...</p>
+        </section>
+      `;
+    }
+  });
 
   try {
     const fetchPromises = CHARTS.map(chart => {
@@ -34,30 +63,30 @@ async function loadAllLeaderboards() {
     });
 
     const results = await Promise.all(fetchPromises);
-    container.innerHTML = ""; // Clear spinner
 
     CHARTS.forEach((chart, index) => {
+      const wrapper = document.getElementById(chart.containerId);
+      if (!wrapper) return;
+
       const data = results[index];
       const rows = data ? data.values : null;
-
-      const sectionEl = document.createElement("section");
-      sectionEl.id = chart.id;
-      sectionEl.className = "ranking-section";
 
       let sectionContent = `<h2 class="section-title">${escapeHtml(chart.title)}</h2>`;
 
       if (rows && rows.length > 1) {
         sectionContent += generateTableHtml(rows);
       } else {
-        sectionContent += `<p class="status-msg">No data available for ${escapeHtml(chart.title)}.</p>`;
+        sectionContent += `<p style="color: var(--text-muted);">No data currently available.</p>`;
       }
 
-      sectionEl.innerHTML = sectionContent;
-      container.appendChild(sectionEl);
+      wrapper.innerHTML = `
+        <section id="${chart.anchorId}" class="ranking-section">
+          ${sectionContent}
+        </section>
+      `;
     });
   } catch (error) {
     console.error("Fetch error:", error);
-    showError(container, error.message);
   }
 }
 
@@ -75,7 +104,7 @@ function generateTableHtml(rows) {
     <table class="leaderboard-table">
       <thead>
         <tr>
-          <th>Rank</th>
+          <th>#</th>
           <th>Cover</th>
           <th>Title</th>
           <th>Artist</th>
@@ -113,38 +142,12 @@ function generateTableHtml(rows) {
   return tableHtml;
 }
 
-function initTheme() {
-  const toggleBtn = document.getElementById("theme-toggle");
-  if (!toggleBtn) return;
-
-  const savedTheme = localStorage.getItem("theme");
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const currentTheme = savedTheme || (prefersDark ? "dark" : "light");
-
-  document.documentElement.setAttribute("data-theme", currentTheme);
-  updateToggleText(toggleBtn, currentTheme);
-
-  toggleBtn.addEventListener("click", () => {
-    const activeTheme = document.documentElement.getAttribute("data-theme");
-    const newTheme = activeTheme === "dark" ? "light" : "dark";
-
-    document.documentElement.setAttribute("data-theme", newTheme);
-    localStorage.setItem("theme", newTheme);
-    updateToggleText(toggleBtn, newTheme);
-  });
-}
-
-function updateToggleText(button, theme) {
-  button.innerHTML = theme === "dark" ? "☀️ Light Mode" : "🌙 Dark Mode";
-}
-
 function initBackToTop() {
   const backToTopBtn = document.getElementById("back-to-top");
   if (!backToTopBtn) return;
 
   window.addEventListener("scroll", () => {
-    const scrollTop = window.scrollY || document.documentElement.scrollTop;
-    if (scrollTop > 300) {
+    if (window.scrollY > 300) {
       backToTopBtn.classList.add("show");
     } else {
       backToTopBtn.classList.remove("show");
@@ -154,15 +157,6 @@ function initBackToTop() {
   backToTopBtn.addEventListener("click", () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
-}
-
-function showError(container, message) {
-  container.innerHTML = `
-    <div class="error-box">
-      <p><strong>Failed to load data</strong></p>
-      <p>${escapeHtml(message)}</p>
-    </div>
-  `;
 }
 
 function escapeHtml(str) {
