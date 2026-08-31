@@ -16,7 +16,7 @@
       </div>
     </header>
 
-    <!-- Jump Navigation Bar -->
+    <!-- Navigation Jump Links -->
     <nav class="tabs">
       <a href="#top-15-artists" class="nav-btn">Top 15 Artists</a>
       <a href="#all-time-tracks" class="nav-btn">All-Time Tracks</a>
@@ -26,8 +26,25 @@
       <a href="#yearly-top-100" class="nav-btn">Yearly Top 100</a>
     </nav>
 
-    <!-- Main Container Rendering All Charts -->
-    <div id="leaderboard-container"></div>
+    <main>
+      <!-- Row 1: Top 15 Artists & All-Time Tracks side-by-side -->
+      <div class="grid-row-2">
+        <div id="section-top-15-artists"></div>
+        <div id="section-all-time-tracks"></div>
+      </div>
+
+      <!-- Row 2: Weekly, Monthly, and 3-Month side-by-side -->
+      <div class="grid-row-3">
+        <div id="section-weekly-top-10"></div>
+        <div id="section-monthly-top-100"></div>
+        <div id="section-three-month-top-100"></div>
+      </div>
+
+      <!-- Row 3: Yearly alone at bottom -->
+      <div class="grid-row-full">
+        <div id="section-yearly-top-100"></div>
+      </div>
+    </main>
   </div>
 
   <button id="back-to-top" class="back-to-top" title="Back to top">↑ Top</button>
