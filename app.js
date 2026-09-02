@@ -119,21 +119,31 @@ function generateTableHtml(rows, tabName) {
     const imgSrc = coverUrl ? escapeHtml(coverUrl) : fallbackImg;
 
     if (isArtistTable) {
-      // Order: Rank (#) | Cover | Artist Name | Bio
       tableHtml += `
         <tr>
           <td><span class="rank-badge rank-${escapeHtml(rank)}">${escapeHtml(rank)}</span></td>
-          <td><img src="${imgSrc}" alt="${escapeHtml(col3)}" class="track-cover artist-avatar" loading="lazy" /></td>
+          <td>
+            <img src="${imgSrc}" 
+                 onerror="this.onerror=null;this.src='${fallbackImg}';" 
+                 alt="${escapeHtml(col3)}" 
+                 class="track-cover artist-avatar" 
+                 loading="lazy" />
+          </td>
           <td class="track-title-cell"><strong>${escapeHtml(col3)}</strong></td>
           <td class="track-artist artist-bio">${escapeHtml(col4)}</td>
         </tr>
       `;
     } else {
-      // Order: Rank (#) | Cover | Title | Artist
       tableHtml += `
         <tr class="clickable-row" onclick="window.open('${spotifyUrl}', '_blank')" title="Listen on Spotify">
           <td><span class="rank-badge rank-${escapeHtml(rank)}">${escapeHtml(rank)}</span></td>
-          <td><img src="${imgSrc}" alt="Track Cover" class="track-cover" loading="lazy" /></td>
+          <td>
+            <img src="${imgSrc}" 
+                 onerror="this.onerror=null;this.src='${fallbackImg}';" 
+                 alt="Track Cover" 
+                 class="track-cover" 
+                 loading="lazy" />
+          </td>
           <td class="track-title-cell">
             <a href="${spotifyUrl}" target="_blank" rel="noopener noreferrer" class="track-link" onclick="event.stopPropagation()">
               ${escapeHtml(col4)}
@@ -148,7 +158,6 @@ function generateTableHtml(rows, tabName) {
   tableHtml += `</tbody></table></div>`;
   return tableHtml;
 }
-
 function initBackToTop() {
   const backToTopBtn = document.getElementById("back-to-top");
   if (!backToTopBtn) return;
