@@ -7,7 +7,7 @@ import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 
 # ---------------------------------------------------------------------------
-# Discovery Configuration
+# Discovery & Filtering Configuration
 # ---------------------------------------------------------------------------
 
 DISCOVERY_QUERIES = [
@@ -49,14 +49,17 @@ PLAYLIST_SEARCH_TERMS = [
     "Ethiopian Music",
 ]
 
-SEED_ARTISTS = {
-    "golden_era": ["Tilahun Gessesse", "Mahmoud Ahmed", "Alemayehu Eshete", "Mulatu Astatke"],
-    "90s_2000s": ["Aster Aweke", "Neway Debebe", "Gigi", "Teddy Afro"],
-    "modern": ["Rophnan", "Kassmasse", "Veronica Adane", "Jano Band"],
-}
+HABESHA_KEYWORDS = [
+    "ethio", "ethiopian", "eritrean", "habesha", "amharic", 
+    "tigrigna", "oromo", "gurage", "ethio-jazz", "ethiopiques"
+]
 
-RELATED_ARTIST_DEPTH = 1
-MAX_ARTIST_POOL_SIZE = 150
+SEED_ARTISTS = [
+    "Tilahun Gessesse", "Mahmoud Ahmed", "Alemayehu Eshete", "Mulatu Astatke",
+    "Aster Aweke", "Neway Debebe", "Gigi", "Teddy Afro", "Rophnan", 
+    "Kassmasse", "Veronica Adane", "Jano Band", "Betty G", "Sami Dan"
+]
+
 ARCHIVE_HEADERS = ["Date", "Track ID", "Artist", "Track Name", "Popularity"]
 
 
@@ -73,126 +76,57 @@ def get_gspread_client():
 
 
 # ---------------------------------------------------------------------------
-# Spotify Discovery
+# Strict Habesha Filtering
 # ---------------------------------------------------------------------------
 
-def discover_by_search_queries(sp, unique_tracks):
-    for query in DISCOVERY_QUERIES:
-        for offset in range(0, 30, 10):
-            try:
-                results = sp.search(q=query, type="track", limit=10, offset=offset)
-                items = results.get("tracks", {}).get("items", [])
-                if not items:
-                    break
-                for track in items:
-                    if track and track.get("id") and track["id"] not in unique_tracks:
-                        unique_tracks[track["id"]] = track
-            except Exception as e:
-                print(f"Spotify search warning for '{query}': {e}")
-                break
+def build_habesha_artist_cache(sp):
+    """Pre-builds a verified set of Habesha artist IDs from seeds & related artists."""
+    verified_ids = set()
+    verified_names = {s.lower() for s in SEED_ARTISTS}
 
-
-def discover_by_playlists(sp, unique_tracks):
-    seen_playlists = set()
-    for term in PLAYLIST_SEARCH_TERMS:
+    for name in SEED_ARTISTS:
         try:
-            results = sp.search(q=term, type="playlist", limit=10)
-            playlists = (results.get("playlists", {}) or {}).get("items", []) or []
+            results = sp.search(q=f'artist:"{name}"', type="artist", limit=1)
+            items = results.get("artists", {}).get("items", [])
+            if items:
+                aid = items[0]["id"]
+                verified_ids.add(aid)
+                # Fetch related artists and filter by genre
+                related = sp.artist_related_artists(aid)
+                for rel in related.get("artists", []):
+                    genres = " ".join(rel.get("genres", [])).lower()
+                    rel_name = rel.get("name", "").lower()
+                    if any(kw in genres for kw in HABESHA_KEYWORDS) or any(kw in rel_name for kw in HABESHA_KEYWORDS):
+                        verified_ids.add(rel["id"])
+                        verified_names.add(rel_name)
         except Exception as e:
-            print(f"Playlist search warning for '{term}': {e}")
-            continue
+            print(f"Error seeding artist '{name}': {e}")
 
-        for playlist in playlists:
-            if not playlist:
-                continue
-            pid = playlist.get("id")
-            if not pid or pid in seen_playlists:
-                continue
-            seen_playlists.add(pid)
-
-            offset = 0
-            while offset < 200:
-                try:
-                    resp = sp.playlist_items(
-                        pid,
-                        limit=100,
-                        offset=offset,
-                        fields="items.track(id,name,type,artists,album,popularity)",
-                    )
-                    items = resp.get("items", [])
-                    if not items:
-                        break
-                    for item in items:
-                        track = item.get("track") if item else None
-                        if track and track.get("type") == "track" and track.get("id"):
-                            if track["id"] not in unique_tracks:
-                                unique_tracks[track["id"]] = track
-                    if len(items) < 100:
-                        break
-                    offset += 100
-                except Exception as e:
-                    print(f"Playlist track warning for '{pid}': {e}")
-                    break
+    return verified_ids, verified_names
 
 
-def resolve_artist_id(sp, name):
-    try:
-        results = sp.search(q=f'artist:"{name}"', type="artist", limit=1)
-        items = results.get("artists", {}).get("items", [])
-        return items[0]["id"] if items else None
-    except Exception as e:
-        print(f"Artist lookup warning for '{name}': {e}")
-        return None
+def is_habesha_track(track, verified_ids, verified_names):
+    """Filters out non-Habesha artists and tracks."""
+    artists = track.get("artists", [])
+    if not artists:
+        return False
+
+    for artist in artists:
+        aid = artist.get("id")
+        aname = artist.get("name", "").lower()
+
+        if aid in verified_ids or aname in verified_names:
+            return True
+
+        if any(kw in aname for kw in HABESHA_KEYWORDS):
+            return True
+
+    return False
 
 
-def expand_related_artists(sp, seed_ids, depth=RELATED_ARTIST_DEPTH, max_pool=MAX_ARTIST_POOL_SIZE):
-    pool = set(seed_ids)
-    frontier = set(seed_ids)
-
-    for _ in range(depth):
-        if len(pool) >= max_pool:
-            break
-        next_frontier = set()
-        for artist_id in frontier:
-            if len(pool) >= max_pool:
-                break
-            try:
-                related = sp.artist_related_artists(artist_id)
-                for artist in related.get("artists", []):
-                    aid = artist.get("id")
-                    if aid and aid not in pool:
-                        pool.add(aid)
-                        next_frontier.add(aid)
-                        if len(pool) >= max_pool:
-                            break
-            except Exception as e:
-                print(f"Related artist error for '{artist_id}': {e}")
-                continue
-        frontier = next_frontier
-
-    return pool
-
-
-def discover_by_related_artists(sp, unique_tracks):
-    seed_ids = set()
-    for era, names in SEED_ARTISTS.items():
-        for name in names:
-            artist_id = resolve_artist_id(sp, name)
-            if artist_id:
-                seed_ids.add(artist_id)
-
-    artist_pool = expand_related_artists(sp, seed_ids)
-
-    for artist_id in artist_pool:
-        try:
-            top = sp.artist_top_tracks(artist_id, country="US")
-            for track in top.get("tracks", []):
-                if track and track.get("id") and track["id"] not in unique_tracks:
-                    unique_tracks[track["id"]] = track
-        except Exception as e:
-            print(f"Top-tracks warning for '{artist_id}': {e}")
-            continue
-
+# ---------------------------------------------------------------------------
+# Spotify Discovery
+# ---------------------------------------------------------------------------
 
 def fetch_spotify_tracks():
     client_id = os.environ.get("SPOTIPY_CLIENT_ID")
@@ -204,14 +138,37 @@ def fetch_spotify_tracks():
     try:
         auth_mgr = SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
         sp = spotipy.Spotify(auth_manager=auth_mgr)
+
+        print("Building Habesha artist cache...")
+        verified_ids, verified_names = build_habesha_artist_cache(sp)
+
         unique_tracks = {}
 
-        print("Discovering tracks...")
-        discover_by_search_queries(sp, unique_tracks)
-        discover_by_playlists(sp, unique_tracks)
-        discover_by_related_artists(sp, unique_tracks)
+        print("Discovering Habesha tracks...")
+        for query in DISCOVERY_QUERIES:
+            try:
+                results = sp.search(q=query, type="track", limit=20)
+                for track in results.get("tracks", {}).get("items", []):
+                    if track and track.get("id") and is_habesha_track(track, verified_ids, verified_names):
+                        unique_tracks[track["id"]] = track
+            except Exception as e:
+                print(f"Search error for '{query}': {e}")
 
-        print(f"Discovered {len(unique_tracks)} unique tracks.")
+        for term in PLAYLIST_SEARCH_TERMS:
+            try:
+                results = sp.search(q=term, type="playlist", limit=5)
+                for playlist in results.get("playlists", {}).get("items", []) or []:
+                    if not playlist:
+                        continue
+                    resp = sp.playlist_items(playlist["id"], limit=50)
+                    for item in resp.get("items", []):
+                        track = item.get("track") if item else None
+                        if track and track.get("id") and is_habesha_track(track, verified_ids, verified_names):
+                            unique_tracks[track["id"]] = track
+            except Exception as e:
+                print(f"Playlist search error for '{term}': {e}")
+
+        print(f"Filtered to {len(unique_tracks)} verified Habesha tracks.")
         return list(unique_tracks.values()), sp
     except Exception as e:
         print(f"Spotify authentication error: {e}")
@@ -219,7 +176,7 @@ def fetch_spotify_tracks():
 
 
 # ---------------------------------------------------------------------------
-# Data Aggregations & Helpers
+# Data Aggregations & Top 15 Artists
 # ---------------------------------------------------------------------------
 
 def ensure_archive_tab(sheet):
@@ -268,9 +225,8 @@ def parse_release_date(date_str):
 
 
 def prepare_artist_leaderboard_rows(sp, tracks, limit=15):
-    """Fetches real artist profile pictures and generates short bios."""
+    """Aggregates Habesha artists and fetches profile pictures directly from Spotify."""
     artist_counts = {}
-    artist_objs = {}
 
     for track in tracks:
         pop = track.get("popularity", 0)
@@ -281,7 +237,6 @@ def prepare_artist_leaderboard_rows(sp, tracks, limit=15):
                 continue
             if aid not in artist_counts:
                 artist_counts[aid] = {"name": name, "total_pop": 0, "count": 0}
-                artist_objs[aid] = artist
             artist_counts[aid]["total_pop"] += pop
             artist_counts[aid]["count"] += 1
 
@@ -291,32 +246,31 @@ def prepare_artist_leaderboard_rows(sp, tracks, limit=15):
         reverse=True
     )[:limit]
 
-    # Batch fetch Spotify artist profile data for real pictures and genres
     artist_ids = [aid for aid, _ in sorted_artists]
     spotify_artist_details = {}
 
     if sp and artist_ids:
-        for i in range(0, len(artist_ids), 50):
-            chunk = artist_ids[i:i + 50]
-            try:
-                resp = sp.artists(chunk)
-                for a in resp.get("artists", []):
-                    if a:
-                        spotify_artist_details[a["id"]] = a
-            except Exception as e:
-                print(f"Error fetching artist batch: {e}")
+        try:
+            resp = sp.artists(artist_ids)
+            for a in resp.get("artists", []):
+                if a:
+                    spotify_artist_details[a["id"]] = a
+        except Exception as e:
+            print(f"Error fetching artist profile batch: {e}")
 
     rows = [["Rank", "Cover", "Artist", "Bio"]]
 
     for rank, (aid, data) in enumerate(sorted_artists, start=1):
         sp_details = spotify_artist_details.get(aid, {})
         images = sp_details.get("images", [])
+        
+        # High-res profile image URL fallback
         profile_img = images[0]["url"] if images else ""
 
         genres = sp_details.get("genres", [])
-        genre_str = ", ".join([g.title() for g in genres[:2]]) if genres else "Habesha Artist"
+        genre_str = ", ".join([g.title() for g in genres[:2]]) if genres else "Habesha Icon"
         followers = sp_details.get("followers", {}).get("total", 0)
-        follower_str = f"{followers:,} Spotify followers" if followers else f"{data['count']} tracked songs"
+        follower_str = f"{followers:,} followers" if followers else f"{data['count']} tracks"
 
         bio = f"{genre_str} • {follower_str}"
         rows.append([rank, profile_img, data["name"], bio])
@@ -378,25 +332,23 @@ def calculate_timeframe_growth(archive_ws, current_tracks, days_back):
         t_copy = dict(t)
 
         if has_archive_data and tid in past_scores:
-            # Historical Delta
             growth = curr_pop - past_scores[tid]
             t_copy["score"] = (float(growth), float(curr_pop))
             t_copy["growth_str"] = f"+{growth}" if growth > 0 else str(growth)
         else:
-            # Cold-Start Criteria
             rel_date = parse_release_date(t.get("album", {}).get("release_date"))
             days_old = (now - rel_date).days
 
-            if days_back == 7:  # Weekly
+            if days_back == 7:
                 recency_weight = max(0.0, 100.0 - (days_old / 30.0))
                 calc_score = curr_pop * 1.5 + recency_weight
-            elif days_back == 30:  # Monthly
+            elif days_back == 30:
                 recency_weight = max(0.0, 50.0 - (days_old / 90.0))
                 calc_score = curr_pop + recency_weight
-            elif days_back == 90:  # 3-Month
+            elif days_back == 90:
                 recency_weight = max(0.0, 25.0 - (days_old / 180.0))
                 calc_score = curr_pop * 1.1 + recency_weight
-            else:  # Yearly
+            else:
                 catalog_weight = min(30.0, days_old / 365.0)
                 calc_score = curr_pop + catalog_weight
 
@@ -445,13 +397,13 @@ def update_sheet_tab(sheet, tab_name, rows):
 
 
 # ---------------------------------------------------------------------------
-# Main Orchestrator
+# Main Execution
 # ---------------------------------------------------------------------------
 
 def main():
     tracks, sp = fetch_spotify_tracks()
     if not tracks:
-        print("Spotify returned 0 tracks. Aborting script to protect Google Sheet data.")
+        print("Spotify returned 0 tracks. Aborting script.")
         return
 
     gc = get_gspread_client()
@@ -463,11 +415,11 @@ def main():
     archive_ws = ensure_archive_tab(sheet)
     append_daily_snapshot(archive_ws, tracks)
 
-    # 1. Top 15 Artists Tab (Rank | Cover | Artist | Bio)
+    # 1. Top 15 Artists
     artist_rows = prepare_artist_leaderboard_rows(sp, tracks, limit=15)
     update_sheet_tab(sheet, "Top 15 Artists", artist_rows)
 
-    # 2. All-Time Tracks Tab
+    # 2. All-Time Most Heard
     all_time_rows = prepare_all_time_track_rows(tracks, limit=100)
     update_sheet_tab(sheet, "All-Time Tracks", all_time_rows)
 
