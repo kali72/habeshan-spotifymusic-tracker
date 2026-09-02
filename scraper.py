@@ -225,11 +225,14 @@ def parse_release_date(date_str):
 
 
 def prepare_artist_leaderboard_rows(sp, tracks, limit=15):
-    """Aggregates Habesha artists and fetches profile pictures directly from Spotify."""
+    """Fetches high-res artist profile pictures directly from Spotify for each artist."""
     artist_counts = {}
+    artist_track_images = {}
 
     for track in tracks:
         pop = track.get("popularity", 0)
+        img_url = get_track_image_url(track)
+
         for artist in track.get("artists", []):
             aid = artist.get("id")
             name = artist.get("name")
@@ -237,6 +240,7 @@ def prepare_artist_leaderboard_rows(sp, tracks, limit=15):
                 continue
             if aid not in artist_counts:
                 artist_counts[aid] = {"name": name, "total_pop": 0, "count": 0}
+                artist_track_images[aid] = img_url
             artist_counts[aid]["total_pop"] += pop
             artist_counts[aid]["count"] += 1
 
@@ -246,31 +250,30 @@ def prepare_artist_leaderboard_rows(sp, tracks, limit=15):
         reverse=True
     )[:limit]
 
-    artist_ids = [aid for aid, _ in sorted_artists]
-    spotify_artist_details = {}
-
-    if sp and artist_ids:
-        try:
-            resp = sp.artists(artist_ids)
-            for a in resp.get("artists", []):
-                if a:
-                    spotify_artist_details[a["id"]] = a
-        except Exception as e:
-            print(f"Error fetching artist profile batch: {e}")
-
     rows = [["Rank", "Cover", "Artist", "Bio"]]
 
     for rank, (aid, data) in enumerate(sorted_artists, start=1):
-        sp_details = spotify_artist_details.get(aid, {})
-        images = sp_details.get("images", [])
-        
-        # High-res profile image URL fallback
-        profile_img = images[0]["url"] if images else ""
+        profile_img = ""
+        genres = []
+        followers = 0
 
-        genres = sp_details.get("genres", [])
+        if sp:
+            try:
+                # Fetch individual artist profile to guarantee image retrieval per artist
+                artist_obj = sp.artist(aid)
+                if artist_obj and artist_obj.get("images"):
+                    profile_img = artist_obj["images"][0]["url"]
+                genres = artist_obj.get("genres", []) if artist_obj else []
+                followers = artist_obj.get("followers", {}).get("total", 0) if artist_obj else 0
+            except Exception as e:
+                print(f"Warning: Could not fetch Spotify profile for '{data['name']}': {e}")
+
+        # Fallback to top track album image if artist profile image is missing
+        if not profile_img:
+            profile_img = artist_track_images.get(aid, "")
+
         genre_str = ", ".join([g.title() for g in genres[:2]]) if genres else "Habesha Icon"
-        followers = sp_details.get("followers", {}).get("total", 0)
-        follower_str = f"{followers:,} followers" if followers else f"{data['count']} tracks"
+        follower_str = f"{followers:,} followers" if followers else f"{data['count']} tracks tracked"
 
         bio = f"{genre_str} • {follower_str}"
         rows.append([rank, profile_img, data["name"], bio])
