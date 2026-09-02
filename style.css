@@ -273,3 +273,11 @@ header p {
   font-size: 0.85rem;
   color: var(--text-muted);
 }
+/* Circular profile image for Top 15 Artists */
+.track-cover.artist-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50% !important;
+  object-fit: cover;
+  border: 2px solid var(--border-color);
+}
