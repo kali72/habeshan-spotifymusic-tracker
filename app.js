@@ -2,17 +2,52 @@ const SPREADSHEET_ID = "1PbFEMGn3XR3cnZXan04C65FdXPJbIVFAO_G51U9RGPU";
 const API_KEY = "AIzaSyD4sLQaZ2Wld01E2wUzoPKfSVd39nOL_vA";
 
 const CHARTS = [
-  { containerId: "section-top-15-artists", anchorId: "top-15-artists", title: "Top 15 Artists", tabName: "Top 15 Artists" },
-  { containerId: "section-all-time-tracks", anchorId: "all-time-tracks", title: "All-Time Most Heard", tabName: "All-Time Tracks" },
-  { containerId: "section-weekly-top-10", anchorId: "weekly-top-10", title: "Weekly Top 10", tabName: "Weekly Top 10" },
-  { containerId: "section-monthly-top-100", anchorId: "monthly-top-100", title: "Monthly Top 100", tabName: "Monthly Top 100" },
-  { containerId: "section-three-month-top-100", anchorId: "three-month-top-100", title: "3-Month Top 100", tabName: "3-Month Top 100" },
-  { containerId: "section-yearly-top-100", anchorId: "yearly-top-100", title: "Yearly Top 100", tabName: "Yearly Top 100" }
+  {
+    containerId: "section-top-15-artists",
+    anchorId: "top-15-artists",
+    title: "Top 15 Artists",
+    tabName: "Top 15 Artists",
+  },
+  {
+    containerId: "section-all-time-tracks",
+    anchorId: "all-time-tracks",
+    title: "All-Time Most Heard",
+    tabName: "All-Time Tracks",
+  },
+  {
+    containerId: "section-weekly-top-10",
+    anchorId: "weekly-top-10",
+    title: "Weekly Top 10",
+    tabName: "Weekly Top 10",
+  },
+  {
+    containerId: "section-monthly-top-100",
+    anchorId: "monthly-top-100",
+    title: "Monthly Top 100",
+    tabName: "Monthly Top 100",
+  },
+  {
+    containerId: "section-three-month-top-100",
+    anchorId: "three-month-top-100",
+    title: "3-Month Top 100",
+    tabName: "3-Month Top 100",
+  },
+  {
+    containerId: "section-yearly-top-100",
+    anchorId: "yearly-top-100",
+    title: "Yearly Top 100",
+    tabName: "Yearly Top 100",
+  },
 ];
 
 // Tabs whose "Score Growth" column reflects a real trend (the All-Time tab
 // always writes "+0", so it's left out of this list on purpose).
-const GROWTH_TABS = new Set(["Weekly Top 10", "Monthly Top 100", "3-Month Top 100", "Yearly Top 100"]);
+const GROWTH_TABS = new Set([
+  "Weekly Top 10",
+  "Monthly Top 100",
+  "3-Month Top 100",
+  "Yearly Top 100",
+]);
 
 document.addEventListener("DOMContentLoaded", () => {
   initTheme();
@@ -46,7 +81,7 @@ function updateToggleText(button, theme) {
 }
 
 async function loadAllLeaderboards() {
-  CHARTS.forEach(chart => {
+  CHARTS.forEach((chart) => {
     const wrapper = document.getElementById(chart.containerId);
     if (wrapper) {
       wrapper.innerHTML = `
@@ -59,10 +94,10 @@ async function loadAllLeaderboards() {
   });
 
   try {
-    const fetchPromises = CHARTS.map(chart => {
+    const fetchPromises = CHARTS.map((chart) => {
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'${encodeURIComponent(chart.tabName)}'!A1:G101?key=${API_KEY}`;
       return fetch(url)
-        .then(res => res.ok ? res.json() : null)
+        .then((res) => (res.ok ? res.json() : null))
         .catch(() => null);
     });
 
@@ -97,7 +132,8 @@ async function loadAllLeaderboards() {
   }
 }
 
-const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 24 24' fill='%23888'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
+const FALLBACK_IMG =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 24 24' fill='%23888'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
 
 // Top 15 Artists: rank, cover(=artist's own Spotify profile photo), artist, bio
 function generateArtistGridHtml(rows) {
@@ -105,7 +141,7 @@ function generateArtistGridHtml(rows) {
 
   let html = `<div class="artist-grid">`;
 
-  dataRows.forEach(row => {
+  dataRows.forEach((row) => {
     const rank = row[0] || "";
     const photoUrl = row[1] || "";
     const name = row[2] || "";
@@ -163,7 +199,7 @@ function generateTrackTableHtml(rows, tabName) {
         <tbody>
   `;
 
-  dataRows.forEach(row => {
+  dataRows.forEach((row) => {
     const rank = row[0] || "";
     const coverUrl = row[1] || "";
     const artist = row[2] || "";
@@ -171,9 +207,18 @@ function generateTrackTableHtml(rows, tabName) {
     const trackId = row[4] || "";
     const growth = row[6] || "";
 
-    const spotifyUrl = trackId ? `https://open.spotify.com/track/${escapeHtml(trackId)}` : "#";
+    const spotifyUrl = trackId
+      ? `https://open.spotify.com/track/${escapeHtml(trackId)}`
+      : "#";
     const imgSrc = coverUrl ? escapeHtml(coverUrl) : FALLBACK_IMG;
-    const rankClass = rank === "1" ? "rank-1" : rank === "2" ? "rank-2" : rank === "3" ? "rank-3" : "";
+    const rankClass =
+      rank === "1"
+        ? "rank-1"
+        : rank === "2"
+          ? "rank-2"
+          : rank === "3"
+            ? "rank-3"
+            : "";
 
     tableHtml += `
       <tr class="clickable-row" onclick="window.open('${spotifyUrl}', '_blank')" title="Listen on Spotify">
