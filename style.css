@@ -1,23 +1,40 @@
+/* ==========================================================================
+   Habesha Music Leaderboard — design tokens
+   Palette drawn from the coffee ceremony (deep roasted browns, warm gold
+   rims of the jebena) and the woven tilet borders on habesha kemis
+   (gold + berry-red accents on a pale ground).
+   ========================================================================== */
+
 :root, html[data-theme="light"] {
-  --bg-color: #f8f9fa;
-  --card-bg: #ffffff;
-  --card-hover: #f1f3f5;
-  --text-main: #212529;
-  --text-muted: #6c757d;
-  --border-color: #e9ecef;
-  --accent-green: #1db954;
-  --shadow-color: rgba(0, 0, 0, 0.08);
+  --bg-color: #f4efe3;
+  --bg-color-rgb: 244, 239, 227;
+  --card-bg: #fffdf8;
+  --card-hover: #f4ecd9;
+  --text-main: #2a1d12;
+  --text-muted: #8a7a66;
+  --border-color: #e6dcc6;
+  --accent-gold: #a8791f;
+  --accent-gold-soft: #e9d3a3;
+  --accent-berry: #7c2335;
+  --accent-teal: #2c6b5e;
+  --spotify-green: #1db954;
+  --shadow-color: rgba(42, 29, 18, 0.09);
 }
 
 html[data-theme="dark"] {
-  --bg-color: #121212;
-  --card-bg: #1e1e1e;
-  --card-hover: #2a2a2a;
-  --text-main: #f8f9fa;
-  --text-muted: #a0a0a0;
-  --border-color: #333333;
-  --accent-green: #1db954;
-  --shadow-color: rgba(0, 0, 0, 0.5);
+  --bg-color: #17110a;
+  --bg-color-rgb: 23, 17, 10;
+  --card-bg: #221a10;
+  --card-hover: #2c2216;
+  --text-main: #f3ead9;
+  --text-muted: #ab9a83;
+  --border-color: #3b2e1c;
+  --accent-gold: #dba949;
+  --accent-gold-soft: #4a3a20;
+  --accent-berry: #c06576;
+  --accent-teal: #5aa696;
+  --spotify-green: #1db954;
+  --shadow-color: rgba(0, 0, 0, 0.45);
 }
 
 * {
@@ -30,94 +47,142 @@ html {
   scroll-behavior: smooth;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
 body {
   background-color: var(--bg-color);
   color: var(--text-main);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   transition: background-color 0.3s ease, color 0.3s ease;
-  padding: 1.5rem;
+}
+
+h1, h2 {
+  font-family: "Fraunces", Georgia, serif;
 }
 
 .container {
   max-width: 1400px;
   margin: 0 auto;
+  padding: 0 1.5rem 3rem;
 }
 
-header {
-  text-align: center;
-  margin-bottom: 2rem;
+/* ---------------------------------------------------------------------- */
+/* Hero                                                                    */
+/* ---------------------------------------------------------------------- */
+
+.hero {
+  background:
+    radial-gradient(ellipse at 15% 0%, rgba(168, 121, 31, 0.16), transparent 55%),
+    linear-gradient(180deg, rgba(0,0,0,0.02), rgba(0,0,0,0));
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 2.5rem;
 }
 
-header h1 {
-  font-size: 2.2rem;
+.hero-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2.75rem 1.5rem 2.25rem;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.hero-text h1 {
+  font-size: clamp(2.1rem, 4vw, 3rem);
+  font-weight: 600;
+  font-style: italic;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
   color: var(--text-main);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.6rem;
 }
 
-header p {
+.hero-text p {
   color: var(--text-muted);
+  font-size: 1.02rem;
+  max-width: 46ch;
 }
 
 .theme-toggle {
   background-color: var(--card-bg);
   color: var(--text-main);
   border: 1px solid var(--border-color);
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
   cursor: pointer;
+  font-family: "Manrope", sans-serif;
   font-weight: 600;
-  transition: all 0.2s ease;
+  font-size: 0.88rem;
+  transition: border-color 0.2s ease, color 0.2s ease;
+  flex-shrink: 0;
 }
 
 .theme-toggle:hover {
-  border-color: var(--accent-green);
-  color: var(--accent-green);
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
 }
 
-/* Navigation Links */
+.theme-toggle:focus-visible,
+.nav-btn:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent-gold);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Navigation                                                              */
+/* ---------------------------------------------------------------------- */
+
 .tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  justify-content: center;
-  margin-bottom: 2rem;
+  gap: 1.4rem;
+  margin-bottom: 2.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .tabs .nav-btn {
-  background-color: var(--card-bg);
-  color: var(--text-main);
-  border: 1px solid var(--border-color);
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
+  color: var(--text-muted);
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.92rem;
   text-decoration: none;
-  transition: all 0.2s ease;
+  padding-bottom: 0.6rem;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s ease, border-color 0.2s ease;
 }
 
 .tabs .nav-btn:hover {
-  background-color: var(--card-hover);
-  border-color: var(--accent-green);
-  color: var(--accent-green);
+  color: var(--accent-gold);
+  border-bottom-color: var(--accent-gold-soft);
 }
 
-/* Grid Layout Rows */
+/* ---------------------------------------------------------------------- */
+/* Grid layout rows                                                        */
+/* ---------------------------------------------------------------------- */
+
 .grid-row-2 {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
   gap: 1.5rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 .grid-row-3 {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 1.5rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 .grid-row-full {
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 @media (max-width: 900px) {
@@ -126,27 +191,44 @@ header p {
   }
 }
 
-/* Ranking Section Cards */
+/* ---------------------------------------------------------------------- */
+/* Section cards                                                           */
+/* ---------------------------------------------------------------------- */
+
 .ranking-section {
   background-color: var(--card-bg);
-  border-radius: 12px;
-  padding: 1.25rem;
+  border-radius: 10px;
+  padding: 1.4rem;
   border: 1px solid var(--border-color);
-  box-shadow: 0 4px 12px var(--shadow-color);
+  box-shadow: 0 6px 18px var(--shadow-color);
   scroll-margin-top: 20px;
   height: 100%;
 }
 
 .section-title {
-  font-size: 1.3rem;
-  font-weight: 700;
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid var(--border-color);
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 1.1rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--border-color);
   color: var(--text-main);
 }
 
-/* Table Styling */
+/* ---------------------------------------------------------------------- */
+/* Track leaderboard table                                                 */
+/* ---------------------------------------------------------------------- */
+
+.table-container {
+  max-height: 560px;
+  overflow-y: auto;
+  border-radius: 8px;
+}
+
+.table-container::-webkit-scrollbar { width: 6px; }
+.table-container::-webkit-scrollbar-track { background: var(--card-bg); }
+.table-container::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+.table-container::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
 .leaderboard-table {
   width: 100%;
   border-collapse: collapse;
@@ -154,15 +236,25 @@ header p {
 
 .leaderboard-table th {
   text-align: left;
-  padding: 8px 10px;
+  padding: 6px 10px 10px;
   color: var(--text-muted);
-  font-size: 0.8rem;
-  text-transform: uppercase;
+  font-size: 0.78rem;
+  font-weight: 600;
   border-bottom: 1px solid var(--border-color);
 }
 
+.leaderboard-table th:first-child { width: 2.4rem; }
+
+.leaderboard-table thead th {
+  position: sticky;
+  top: 0;
+  background-color: var(--card-bg);
+  z-index: 10;
+  box-shadow: 0 1px 0 var(--border-color);
+}
+
 .leaderboard-table td {
-  padding: 10px;
+  padding: 9px 10px;
   vertical-align: middle;
   border-bottom: 1px solid var(--border-color);
 }
@@ -176,41 +268,173 @@ header p {
   background-color: var(--card-hover);
 }
 
+.rank-num {
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--text-muted);
+  font-variant-numeric: oldstyle-nums;
+}
+
+.rank-1 { color: var(--accent-gold); }
+.rank-2 { color: var(--text-main); opacity: 0.75; }
+.rank-3 { color: var(--accent-berry); }
+
 .track-cover {
-  width: 64px;
-  height: 64px;
+  width: 52px;
+  height: 52px;
   border-radius: 6px;
   object-fit: cover;
   display: block;
+  border: 1px solid var(--border-color);
 }
+
+.track-title-cell { max-width: 260px; }
 
 .track-link {
   color: var(--text-main);
   font-weight: 600;
   text-decoration: none;
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
-.track-link:hover {
-  color: var(--accent-green);
+.track-link:hover { color: var(--accent-gold); }
+
+.track-link .spotify-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--spotify-green);
+  flex-shrink: 0;
+  opacity: 0.85;
 }
 
 .track-artist {
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
 }
 
-.rank-badge {
+.growth-badge {
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.growth-up {
+  color: var(--accent-teal);
+  background-color: color-mix(in srgb, var(--accent-teal) 14%, transparent);
+}
+
+.growth-down {
+  color: var(--accent-berry);
+  background-color: color-mix(in srgb, var(--accent-berry) 14%, transparent);
+}
+
+.growth-flat {
+  color: var(--text-muted);
+  background-color: transparent;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Top 15 Artists — card grid                                              */
+/* ---------------------------------------------------------------------- */
+
+.artist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 0.9rem;
+  max-height: 560px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.artist-grid::-webkit-scrollbar { width: 6px; }
+.artist-grid::-webkit-scrollbar-track { background: var(--card-bg); }
+.artist-grid::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+
+.artist-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-color);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.artist-card:hover {
+  background-color: var(--card-hover);
+  border-color: var(--accent-gold-soft);
+}
+
+.artist-rank {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--border-color);
+  width: 1.6rem;
+  flex-shrink: 0;
+  text-align: center;
+  font-variant-numeric: oldstyle-nums;
+}
+
+html[data-theme="dark"] .artist-rank { color: var(--border-color); }
+
+.artist-card:nth-child(1) .artist-rank { color: var(--accent-gold); }
+.artist-card:nth-child(2) .artist-rank { color: var(--text-muted); }
+.artist-card:nth-child(3) .artist-rank { color: var(--accent-berry); }
+
+.artist-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--card-bg);
+  outline: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.artist-info { min-width: 0; }
+
+.artist-name {
   font-weight: 700;
   font-size: 0.95rem;
-  color: var(--text-muted);
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.rank-1 { color: #ffd700; }
-.rank-2 { color: #c0c0c0; }
-.rank-3 { color: #cd7f32; }
+.artist-bio {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
-/* Back to top button */
+/* ---------------------------------------------------------------------- */
+/* Misc                                                                     */
+/* ---------------------------------------------------------------------- */
+
+.empty-state {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  padding: 1rem 0.25rem;
+}
+
+footer {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  padding-top: 1rem;
+}
+
 .back-to-top {
   position: fixed;
   bottom: 20px;
@@ -218,66 +442,25 @@ header p {
   background-color: var(--card-bg);
   color: var(--text-main);
   border: 1px solid var(--border-color);
-  padding: 10px 15px;
-  border-radius: 50px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.85rem;
   cursor: pointer;
-  display: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
   box-shadow: 0 4px 12px var(--shadow-color);
 }
 
 .back-to-top.show {
-  display: block;
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
 }
 
-/* Scrollable table container showing ~10 rows at a time */
-.table-container {
-  max-height: 560px;
-  overflow-y: auto;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-}
-
-/* Custom Sleek Scrollbar */
-.table-container::-webkit-scrollbar {
-  width: 6px;
-}
-
-.table-container::-webkit-scrollbar-track {
-  background: var(--card-bg);
-}
-
-.table-container::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 3px;
-}
-
-.table-container::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
-}
-
-/* Sticky Headers while scrolling */
-.leaderboard-table thead th {
-  position: sticky;
-  top: 0;
-  background-color: var(--card-bg);
-  z-index: 10;
-  box-shadow: 0 1px 0 var(--border-color);
-}
-/* Circular Avatar for Artist Profile Pictures */
-.artist-avatar {
-  border-radius: 50% !important;
-  object-fit: cover;
-}
-
-.artist-bio {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-/* Circular profile image for Top 15 Artists */
-.track-cover.artist-avatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 50% !important;
-  object-fit: cover;
-  border: 2px solid var(--border-color);
+.back-to-top:hover {
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
 }
