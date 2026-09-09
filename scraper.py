@@ -5,7 +5,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
-
+import time
 # ---------------------------------------------------------------------------
 # Discovery & Filtering Configuration
 # ---------------------------------------------------------------------------
@@ -438,6 +438,7 @@ def main():
         ranked_tracks = calculate_timeframe_growth(archive_ws, tracks, days_back=days_back)
         rows = prepare_leaderboard_rows(ranked_tracks, limit=limit)
         update_sheet_tab(sheet, tab_name, rows)
+        time.sleep(1)
 
 
 if __name__ == "__main__":
